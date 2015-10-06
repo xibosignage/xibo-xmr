@@ -4,6 +4,14 @@
  * Spring Signage Ltd - http://www.springsignage.com
  * Copyright (C) 2015 Spring Signage Ltd
  * (listen.php)
+ *
+sequenceDiagram
+Player->> CMS: Register
+Note right of Player: Register contains the XMR Channel
+CMS->> XMR: PlayerAction
+XMR->> CMS: ACK
+XMR-->> Player: PlayerAction
+ *
  */
 require 'vendor/autoload.php';
 
@@ -52,18 +60,35 @@ try {
 
     $responder->on('message', function ($msg) use ($log, $responder, $publisher) {
 
-        $log->info($msg);
+        try {
+            // Log incomming message
+            $log->info($msg);
 
-        // Do something
-        sleep(2);
+            // Parse the message and expect a "channel" element
+            $msg = json_decode($msg);
 
-        // Respond to this message
-        $responder->send(true);
+            if (!isset($msg->channel))
+                throw new InvalidArgumentException('Missing Channel');
 
-        // Push message out to subscribers
-        $log->info('Sending: ' . $msg);
-        $publisher->sendmulti(['cms', $msg]);
-        //$publisher->send('cms ' . $msg);
+            if (!isset($msg->key))
+                throw new InvalidArgumentException('Missing Key');
+
+            if (!isset($msg->message))
+                throw new InvalidArgumentException('Missing Message');
+
+            // Respond to this message
+            $responder->send(true);
+
+            // Push message out to subscribers
+            $publisher->sendmulti([$msg->channel, $msg->key, $msg->message]);
+            //$publisher->send('cms ' . $msg);
+        }
+        catch (InvalidArgumentException $e) {
+            // Return false
+            $responder->send(false);
+
+            $log->err($e->getMessage());
+        }
     });
 
     // Run the react event loop
