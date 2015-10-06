@@ -30,24 +30,43 @@ else
 $log = new \Monolog\Logger('xmr');
 $log->pushHandler(new \Monolog\Handler\StreamHandler('log.txt', $logLevel));
 $log->pushHandler(new \Monolog\Handler\StreamHandler(STDOUT, $logLevel));
-$log->info('Starting up, listening on ' . $config->listenOn);
+$log->info(sprintf('Starting up - listening on %s, publishing on %s.', $config->listenOn, $config->pubOn));
 
 try {
+    $loop = React\EventLoop\Factory::create();
+
     $context = new React\ZMQ\Context($loop);
 
-    $factory = new \React\Datagram\Factory($loop);
+    // Reply socket for requests from CMS
+    $responder = $context->getSocket(ZMQ::SOCKET_REP);
+    $responder->bind($config->listenOn);
 
-    $pull = $context->getSocket(ZMQ::SOCKET_PULL);
-    $pull->bind('tcp://127.0.0.1:5555');
+    // Pub socket for messages to Players (subs)
+    $publisher = $context->getSocket(ZMQ::SOCKET_PUB);
+    $publisher->connect($config->pubOn);
 
-    $pull->on('error', function ($e) {
+    // REP
+    $responder->on('error', function ($e) {
         var_dump($e->getMessage());
     });
 
-    $pull->on('message', function ($msg) {
-        echo "Received: $msg\n";
+    $responder->on('message', function ($msg) use ($log, $responder, $publisher) {
+
+        $log->info($msg);
+
+        // Do something
+        sleep(2);
+
+        // Respond to this message
+        $responder->send(true);
+
+        // Push message out to subscribers
+        $log->info('Sending: ' . $msg);
+        $publisher->sendmulti(['cms', $msg]);
+        //$publisher->send('cms ' . $msg);
     });
 
+    // Run the react event loop
     $loop->run();
 }
 catch (Exception $e) {
