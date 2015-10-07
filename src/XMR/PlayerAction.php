@@ -11,6 +11,7 @@ namespace Xibo\XMR;
 
 abstract class PlayerAction implements PlayerActionInterface
 {
+    public $action;
     private $channel;
     private $publicKey;
 
@@ -19,12 +20,33 @@ abstract class PlayerAction implements PlayerActionInterface
      * @param string $channel
      * @param string $key
      * @return $this
+     * @throws PlayerActionException if the key is invalid
      */
     public final function setIdentity($channel, $key)
     {
         $this->channel = $channel;
-        $this->publicKey = openssl_get_publickey($key);
+        if (!$this->publicKey = openssl_get_publickey($key))
+            throw new PlayerActionException('Invalid Public Key');
+
         return $this;
+    }
+
+    /**
+     * Serialize this object to its JSON representation
+     * @param array $include
+     * @return string
+     */
+    public final function serializeToJson($include = [])
+    {
+        $include = array_merge(['action'], $include);
+
+        $json = [];
+        foreach (get_object_vars($this) as $key => $value) {
+            if (in_array($key, $include)) {
+                $json[$key] = $value;
+            }
+        }
+        return json_encode($json);
     }
 
     /**
@@ -37,7 +59,7 @@ abstract class PlayerAction implements PlayerActionInterface
         $message = null;
 
         if (!openssl_seal($this->getMessage(), $message, $eKeys, [$this->publicKey]))
-            throw new PlayerActionException('Invalid Public Key');
+            throw new PlayerActionException('Cannot seal message');
 
         return [
             'key' => base64_encode($eKeys[0]),
@@ -62,8 +84,6 @@ abstract class PlayerAction implements PlayerActionInterface
                 'message' => $encrypted['message'],
                 'key' => $encrypted['key']
             ];
-
-            echo 'Sending: ' . var_export($message, true);
 
             // Issue a message payload to XMR.
             $requester = new \ZMQSocket(new \ZMQContext(), \ZMQ::SOCKET_REQ);

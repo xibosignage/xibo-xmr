@@ -61,7 +61,7 @@ try {
     $responder->on('message', function ($msg) use ($log, $responder, $publisher) {
 
         try {
-            // Log incomming message
+            // Log incoming message
             $log->info($msg);
 
             // Parse the message and expect a "channel" element
@@ -87,7 +87,7 @@ try {
             // Return false
             $responder->send(false);
 
-            $log->err($e->getMessage());
+            $log->error($e->getMessage());
         }
     });
 
