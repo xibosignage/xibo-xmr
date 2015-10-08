@@ -5,11 +5,15 @@
  * (playerSub.php)
  */
 require '../vendor/autoload.php';
-$identity = 'player1';
+
+if (!isset($argv[1]))
+    die('Missing player identity' . PHP_EOL);
+
+$identity = $argv[1];
 
 $config = json_decode(file_get_contents('../config.json'));
 
-echo 'Binding to: ' . $config->pubOn . PHP_EOL;
+echo 'Connecting to: ' . $config->pubOn . PHP_EOL;
 
 $fp = fopen('key.pem', 'r');
 $privateKey = openssl_get_privatekey(fread($fp, 8192));
@@ -21,7 +25,7 @@ $loop = React\EventLoop\Factory::create();
 $context = new React\ZMQ\Context($loop);
 
 $sub = $context->getSocket(ZMQ::SOCKET_SUB);
-$sub->bind($config->pubOn);
+$sub->connect($config->pubOn[0]);
 $sub->subscribe($identity);
 
 $sub->on('messages', function ($msg) use ($identity, $privateKey) {

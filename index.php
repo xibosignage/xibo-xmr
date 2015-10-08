@@ -38,7 +38,7 @@ else
 $log = new \Monolog\Logger('xmr');
 $log->pushHandler(new \Monolog\Handler\StreamHandler('log.txt', $logLevel));
 $log->pushHandler(new \Monolog\Handler\StreamHandler(STDOUT, $logLevel));
-$log->info(sprintf('Starting up - listening on %s, publishing on %s.', $config->listenOn, $config->pubOn));
+$log->info(sprintf('Starting up - listening for CMS on %s.', $config->listenOn));
 
 try {
     $loop = React\EventLoop\Factory::create();
@@ -51,7 +51,11 @@ try {
 
     // Pub socket for messages to Players (subs)
     $publisher = $context->getSocket(ZMQ::SOCKET_PUB);
-    $publisher->connect($config->pubOn);
+
+    foreach ($config->pubOn as $pubOn) {
+        $log->info(sprintf('Bind to %s for Publish.', $pubOn));
+        $publisher->bind($pubOn);
+    }
 
     // REP
     $responder->on('error', function ($e) {
