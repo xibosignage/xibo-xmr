@@ -1,19 +1,16 @@
 {
   "chmod": "0755",
-  "directories": [
-    "lib"
-  ],
   "files": [
     "LICENSE"
   ],
   "finder": [
     {
       "name": "*.php",
-      "exclude": ["tests"],
+      "exclude": ["bin", "tests", "src"],
       "in": "vendor"
     }
   ],
   "main": "index.php",
-  "output": "/home/vagrant/xibo-xmr.phar",
+  "output": "/home/vagrant/xmr.phar",
   "stub": true
 }
