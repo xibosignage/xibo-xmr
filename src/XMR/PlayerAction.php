@@ -11,7 +11,14 @@ namespace Xibo\XMR;
 
 abstract class PlayerAction implements PlayerActionInterface
 {
+    // The action
     public $action;
+
+    // TTL
+    public $createdDt;
+    public $ttl;
+
+    // Channel and key
     private $channel;
     private $publicKey;
 
@@ -32,13 +39,22 @@ abstract class PlayerAction implements PlayerActionInterface
     }
 
     /**
+     * Set the message TTL
+     * @param int $ttl
+     */
+    public final function setTtl($ttl = 120)
+    {
+        $this->ttl = $ttl;
+    }
+
+    /**
      * Serialize this object to its JSON representation
      * @param array $include
      * @return string
      */
     public final function serializeToJson($include = [])
     {
-        $include = array_merge(['action'], $include);
+        $include = array_merge(['action', 'createdDt', 'ttl'], $include);
 
         $json = [];
         foreach (get_object_vars($this) as $key => $value) {
@@ -76,6 +92,14 @@ abstract class PlayerAction implements PlayerActionInterface
     public final function send($connection)
     {
         try {
+            // Set the message create date
+            $this->createdDt = date('c');
+
+            // Set the TTL if not already set
+            if ($this->ttl == 0)
+                $this->setTtl();
+
+            // Get the encrypted message
             $encrypted = $this->getEncryptedMessage();
 
             // Envelope our message

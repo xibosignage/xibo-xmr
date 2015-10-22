@@ -58,8 +58,8 @@ try {
     }
 
     // REP
-    $responder->on('error', function ($e) {
-        var_dump($e->getMessage());
+    $responder->on('error', function ($e) use ($log) {
+        $log->error($e->getMessage());
     });
 
     $responder->on('message', function ($msg) use ($log, $responder, $publisher) {
