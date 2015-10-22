@@ -41,10 +41,13 @@ abstract class PlayerAction implements PlayerActionInterface
     /**
      * Set the message TTL
      * @param int $ttl
+     * @return $this
      */
     public final function setTtl($ttl = 120)
     {
         $this->ttl = $ttl;
+
+        return $this;
     }
 
     /**
