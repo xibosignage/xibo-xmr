@@ -95,6 +95,12 @@ try {
         }
     });
 
+    // Periodic updater
+    $loop->addPeriodicTimer(30, function() use ($log, $publisher) {
+        $log->debug('Heartbeat...');
+        $publisher->sendmulti(["H", "", ""]);
+    });
+
     // Run the react event loop
     $loop->run();
 }
