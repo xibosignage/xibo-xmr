@@ -26,6 +26,9 @@ class ChangeLayoutAction extends PlayerAction
      */
     public function setLayoutDetails($layoutId, $duration = 0, $downloadRequired = false, $changeMode = 'queue')
     {
+        if ($duration === null)
+            $duration = 0;
+
         $this->layoutId = $layoutId;
         $this->duration = $duration;
         $this->downloadRequired = $downloadRequired;
