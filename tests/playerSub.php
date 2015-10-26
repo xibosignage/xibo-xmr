@@ -13,7 +13,7 @@ $identity = $argv[1];
 
 $config = json_decode(file_get_contents('../config.json'));
 
-echo 'Connecting to: ' . $config->pubOn . PHP_EOL;
+echo 'Connecting to: ' . $config->pubOn[0] . PHP_EOL;
 
 $fp = fopen('key.pem', 'r');
 $privateKey = openssl_get_privatekey(fread($fp, 8192));
@@ -26,11 +26,15 @@ $context = new React\ZMQ\Context($loop);
 
 $sub = $context->getSocket(ZMQ::SOCKET_SUB);
 $sub->connect($config->pubOn[0]);
+$sub->subscribe("H");
 $sub->subscribe($identity);
 
 $sub->on('messages', function ($msg) use ($identity, $privateKey) {
     try {
         echo 'Received: ' . json_encode($msg) . PHP_EOL;
+
+        if ($msg[0] == "H")
+            return;
 
         // Expect messages to have a length of 3
         if (count($msg) != 3)
