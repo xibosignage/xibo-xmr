@@ -4,6 +4,14 @@
  * Spring Signage Ltd - http://www.springsignage.com
  * Copyright (C) 2015 Spring Signage Ltd
  * (listen.php)
+ *
+sequenceDiagram
+Player->> CMS: Register
+Note right of Player: Register contains the XMR Channel
+CMS->> XMR: PlayerAction
+XMR->> CMS: ACK
+XMR-->> Player: PlayerAction
+ *
  */
 require 'vendor/autoload.php';
 
@@ -30,24 +38,70 @@ else
 $log = new \Monolog\Logger('xmr');
 $log->pushHandler(new \Monolog\Handler\StreamHandler('log.txt', $logLevel));
 $log->pushHandler(new \Monolog\Handler\StreamHandler(STDOUT, $logLevel));
-$log->info('Starting up, listening on ' . $config->listenOn);
+$log->info(sprintf('Starting up - listening for CMS on %s.', $config->listenOn));
 
 try {
+    $loop = React\EventLoop\Factory::create();
+
     $context = new React\ZMQ\Context($loop);
 
-    $factory = new \React\Datagram\Factory($loop);
+    // Reply socket for requests from CMS
+    $responder = $context->getSocket(ZMQ::SOCKET_REP);
+    $responder->bind($config->listenOn);
 
-    $pull = $context->getSocket(ZMQ::SOCKET_PULL);
-    $pull->bind('tcp://127.0.0.1:5555');
+    // Pub socket for messages to Players (subs)
+    $publisher = $context->getSocket(ZMQ::SOCKET_PUB);
 
-    $pull->on('error', function ($e) {
-        var_dump($e->getMessage());
+    foreach ($config->pubOn as $pubOn) {
+        $log->info(sprintf('Bind to %s for Publish.', $pubOn));
+        $publisher->bind($pubOn);
+    }
+
+    // REP
+    $responder->on('error', function ($e) use ($log) {
+        $log->error($e->getMessage());
     });
 
-    $pull->on('message', function ($msg) {
-        echo "Received: $msg\n";
+    $responder->on('message', function ($msg) use ($log, $responder, $publisher) {
+
+        try {
+            // Log incoming message
+            $log->info($msg);
+
+            // Parse the message and expect a "channel" element
+            $msg = json_decode($msg);
+
+            if (!isset($msg->channel))
+                throw new InvalidArgumentException('Missing Channel');
+
+            if (!isset($msg->key))
+                throw new InvalidArgumentException('Missing Key');
+
+            if (!isset($msg->message))
+                throw new InvalidArgumentException('Missing Message');
+
+            // Respond to this message
+            $responder->send(true);
+
+            // Push message out to subscribers
+            $publisher->sendmulti([$msg->channel, $msg->key, $msg->message]);
+            //$publisher->send('cms ' . $msg);
+        }
+        catch (InvalidArgumentException $e) {
+            // Return false
+            $responder->send(false);
+
+            $log->error($e->getMessage());
+        }
     });
 
+    // Periodic updater
+    $loop->addPeriodicTimer(30, function() use ($log, $publisher) {
+        $log->debug('Heartbeat...');
+        $publisher->sendmulti(["H", "", ""]);
+    });
+
+    // Run the react event loop
     $loop->run();
 }
 catch (Exception $e) {
