@@ -32,6 +32,8 @@ if (!file_exists('config.json'))
 if (!file_exists($config))
     throw new InvalidArgumentException('Missing ' . $config . ' file, please create one in the same folder as the application');
 
+chdir(dirname($config));
+
 $config = json_decode(file_get_contents($config));
 
 if ($config->debug)
