@@ -9,7 +9,7 @@ ifconfig
 IP
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  config.vm.box = "avenuefactory/lamp"
+  config.vm.box = "ubuntu/trusty64"
   config.vm.provision "shell", inline: $ip, run: "always"
   config.vm.network :public_network, type: "dhcp"
   config.vm.synced_folder "./", "/var/www", id: "vagrant-root",

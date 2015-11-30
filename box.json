@@ -1,8 +1,5 @@
 {
   "chmod": "0755",
-  "directories": [
-    "lib"
-  ],
   "files": [
     "LICENSE"
   ],
@@ -14,6 +11,6 @@
     }
   ],
   "main": "index.php",
-  "output": "/home/vagrant/xibo-xmr.phar",
+  "output": "/home/vagrant/xmr.phar",
   "stub": true
 }

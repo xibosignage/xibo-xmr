@@ -22,9 +22,11 @@
       "homepage": "https://github.com/xibosignage/xibo/tree/master/contributors"
     }
   ],
+  "bin": ["bin/xmr.phar"],
   "require": {
     "php": ">=5.5",
-    "monolog/monolog": "^1.17"
+    "monolog/monolog": "^1.17",
+    "react/zmq": "^0.3.0"
   },
   "autoload": {
     "psr-4": { "Xibo\\" : "src/" }
