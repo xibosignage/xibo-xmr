@@ -24,10 +24,17 @@ function exception_error_handler($severity, $message, $file, $line) {
 }
 set_error_handler("exception_error_handler");
 
-if (!file_exists('config.json'))
-    throw new InvalidArgumentException('Missing config.json file, please create one in the same folder as the application');
+$config = 'config.json';
 
-$config = json_decode(file_get_contents('config.json'));
+if (!file_exists('config.json'))
+    $config = (Phar::running(false) == '') ? __DIR__ : dirname(Phar::running(false)) . '/config.json';
+
+if (!file_exists($config))
+    throw new InvalidArgumentException('Missing ' . $config . ' file, please create one in the same folder as the application');
+
+chdir(dirname($config));
+
+$config = json_decode(file_get_contents($config));
 
 if ($config->debug)
     $logLevel = \Monolog\Logger::DEBUG;
