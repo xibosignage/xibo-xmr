@@ -1,5 +1,7 @@
 {
   "listenOn": "tcp://localhost:50001",
   "pubOn": ["tcp://localhost:9505", "tcp://localhost:50002"],
-  "debug": true
+  "debug": true,
+  "ipv6RespSupport": false,
+  "ipv6PubSupport": false
 }
