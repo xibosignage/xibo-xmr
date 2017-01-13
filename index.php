@@ -58,6 +58,7 @@ try {
 
     // Set RESP socket options
     if (isset($config->ipv6RespSupport) && $config->ipv6RespSupport === true) {
+        $log->debug('RESP MQ Setting socket option for IPv6 to TRUE');
         $responder->setSockOpt(\ZMQ::SOCKOPT_IPV6, true);
     }
 
@@ -66,6 +67,7 @@ try {
 
     // Set PUB socket options
     if (isset($config->ipv6PubSupport) && $config->ipv6PubSupport === true) {
+        $log->debug('Pub MQ Setting socket option for IPv6 to TRUE');
         $publisher->setSockOpt(\ZMQ::SOCKOPT_IPV6, true);
     }
 
