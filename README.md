@@ -36,26 +36,6 @@ You may also build this library from source code:
 
 
 
-If you want to build for production which will only include the PHAR file, switch to a `Dockerfile`:
-
-``` yaml
-version: "3"
-
-services:
-  xmr:
-    build:
-      context: .
-      dockerfile: Dockerfile
-
-    ports:
-     - "9505:9505"
-     - "50001:50001"
-```
-
-
-
-
-
 You may also reference this code in your own projects via Composer:
 
 ```bash
