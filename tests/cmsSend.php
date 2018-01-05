@@ -5,7 +5,7 @@
  * (cmsSend.php)
  *
  * This is a CMS send MOCK
- *   execute with: docker exec -it xiboxmr_xmr_1 bash -c "cd /opt/xmr/tests; php cmsSend.php 1234"
+ *   execute with: docker exec -it xiboxmr_xmr_1 sh -c "cd /opt/xmr/tests; php cmsSend.php 1234"
  *
  */
 require '../vendor/autoload.php';

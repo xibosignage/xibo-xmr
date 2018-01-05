@@ -5,7 +5,7 @@
  * (playerSub.php)
  *
  * This is a player subscription mock file.
- * docker exec -it xiboxmr_xmr_1 bash -c "cd /opt/xmr/tests; php playerSub.php 1234"
+ * docker exec -it xiboxmr_xmr_1 sh -c "cd /opt/xmr/tests; php playerSub.php 1234"
  *
  */
 require '../vendor/autoload.php';
