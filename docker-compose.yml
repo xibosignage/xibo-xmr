@@ -6,9 +6,5 @@ services:
       context: .
       dockerfile: Dockerfile-tests
 
-    ports:
-     - "9506:9505"
-     - "50001:50001"
-
     environment:
       XMR_DEBUG: "true"
