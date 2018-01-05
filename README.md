@@ -1,6 +1,6 @@
 # Introduction
 Xibo - Digital Signage - http://www.xibo.org.uk
-Copyright (C) 2006-2015 Daniel Garner and Contributors.
+Copyright (C) 2006-2017 Spring Signage Ltd and Contributors.
 
 This is the Xibo Message Relay (XMR) repository.
 

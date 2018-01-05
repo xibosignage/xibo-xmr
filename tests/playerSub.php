@@ -1,8 +1,12 @@
 <?php
 /*
  * Spring Signage Ltd - http://www.springsignage.com
- * Copyright (C) 2015 Spring Signage Ltd
+ * Copyright (C) 2015-18 Spring Signage Ltd
  * (playerSub.php)
+ *
+ * This is a player subscription mock file.
+ * docker exec -it xiboxmr_xmr_1 bash -c "cd /opt/xmr/tests; php playerSub.php 1234"
+ *
  */
 require '../vendor/autoload.php';
 
@@ -11,9 +15,8 @@ if (!isset($argv[1]))
 
 $identity = $argv[1];
 
+// Use the same settings as the running XMR instance
 $config = json_decode(file_get_contents('../config.json'));
-
-echo 'Connecting to: ' . $config->pubOn[0] . PHP_EOL;
 
 $fp = fopen('key.pem', 'r');
 $privateKey = openssl_get_privatekey(fread($fp, 8192));
@@ -31,7 +34,7 @@ $sub->subscribe($identity);
 
 $sub->on('messages', function ($msg) use ($identity, $privateKey) {
     try {
-        echo 'Received: ' . json_encode($msg) . PHP_EOL;
+        echo '[' . date('Y-m-d H:i:s') . '] Received: ' . json_encode($msg) . PHP_EOL;
 
         if ($msg[0] == "H")
             return;
@@ -51,12 +54,12 @@ $sub->on('messages', function ($msg) use ($identity, $privateKey) {
         $message = base64_decode($msg[2]);
 
         if (!openssl_open($message, $opened, $key, $privateKey))
-            throw new \Xibo\XMR\PlayerActionException('Encryption Error');
+            throw new Exception('Encryption Error');
 
-        echo 'Message: ' . $opened;
+        echo 'Message: ' . $opened . PHP_EOL;
     }
     catch (InvalidArgumentException $e) {
-        echo $e->getMessage();
+        echo $e->getMessage() . PHP_EOL;
     }
 });
 

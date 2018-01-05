@@ -1,7 +1,9 @@
 {
-  "listenOn": "tcp://127.0.0.1:50001",
-  "pubOn": ["tcp://*:9505"],
-  "debug": false,
+  "listenOn": "tcp://172.26.0.2:50001",
+  "pubOn": ["tcp://172.26.0.2:9505"],
+  "queuePoll": ,
+  "queueSize": ,
+  "debug": true,
   "ipv6RespSupport": false,
   "ipv6PubSupport": false
 }
