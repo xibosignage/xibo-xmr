@@ -1,4 +1,3 @@
 vendor/
-.project/
-.vagrant/
 .idea/
+config.json

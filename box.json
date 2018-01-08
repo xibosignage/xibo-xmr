@@ -11,6 +11,6 @@
     }
   ],
   "main": "index.php",
-  "output": "/home/vagrant/xmr.phar",
+  "output": "bin/xmr.phar",
   "stub": true
 }
