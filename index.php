@@ -113,8 +113,14 @@ try {
             // Respond to this message
             $responder->send(true);
 
+            // Make sure QOS is set
+            if (!isset($msg->qos)) {
+                // Default to highest priority for messages missing a QOS
+                $msg->qos = 10;
+            }
+
             // Decide whether we should queue the message or send it immediately.
-            if (isset($msg->qos) && $msg->qos != 10) {
+            if ($msg->qos != 10) {
                 // Queue for the periodic poll to send
                 $log->debug('Queuing');
                 $messageQueue[] = $msg;
