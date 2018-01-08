@@ -1,0 +1,7 @@
+version: "3"
+
+services:
+  xmr:
+    build: .
+    environment:
+      XMR_DEBUG: "true"
