@@ -18,39 +18,13 @@ $identity = $argv[1];
 // Use the same settings as the running XMR instance
 $config = json_decode(file_get_contents('../config.json'));
 
-// Get the Public Key
-$fp = fopen('key.pub', 'r');
-$publicKey = openssl_get_publickey(fread($fp, 8192));
-fclose($fp);
-
 try {
-
-    // Queue up a bunch of messages to see what happens
-    for ($i = 0; $i < 15; $i++) {
-
-        // Reference params
-        $message = null;
-        $eKeys = null;
-
-        // Encrypt a message
-        openssl_seal($i . ' - QOS1', $message, $eKeys, [$publicKey]);
-
-        // Create a message and send.
-        send($config->listenOn, [
-            'channel' => $identity,
-            'key' => base64_encode($eKeys[0]),
-            'message' => base64_encode($message),
-            'qos' => rand(1, 10)
-        ]);
-
-        usleep(500);
-    }
+    // Create a message and send.
+    send($config->listenOn, 'stats');
 
 } catch (Exception $e) {
     echo $e->getMessage() . PHP_EOL;
 }
-
-openssl_free_key($publicKey);
 
 /**
  * @param $connection
@@ -70,7 +44,7 @@ function send($connection, $message)
     $socket->connect($connection);
 
     // Send the message to the socket
-    $socket->send(json_encode($message));
+    $socket->send($message);
 
     // Need to replace this with a non-blocking recv() with a retry loop
     $retries = 15;
