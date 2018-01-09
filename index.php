@@ -85,6 +85,24 @@ try {
     }
 
     // Create an in memory message queue.
+    $messageStatsEmpty = [
+        'peakQueueSize' => 0,
+        'messageCounters' => [
+            'total' => 0,
+            'sent' => 0,
+            'qos1' => 0,
+            'qos2' => 0,
+            'qos3' => 0,
+            'qos4' => 0,
+            'qos5' => 0,
+            'qos6' => 0,
+            'qos7' => 0,
+            'qos8' => 0,
+            'qos9' => 0,
+            'qos10' => 0,
+        ]
+    ];
+    $messageStats = $messageStatsEmpty;
     $messageQueue = [];
 
     // REP
@@ -92,42 +110,63 @@ try {
         $log->error($e->getMessage());
     });
 
-    $responder->on('message', function ($msg) use ($log, $responder, $publisher, &$messageQueue) {
+    $responder->on('message', function ($msg) use ($log, $responder, $publisher, &$messageQueue, &$messageStats, $messageStatsEmpty) {
 
         try {
             // Log incoming message
             $log->info($msg);
 
-            // Parse the message and expect a "channel" element
-            $msg = json_decode($msg);
+            if ($msg === 'stats') {
+                // Add the current queue size
+                $messageStats['currentQueueSize'] = count($messageQueue);
 
-            if (!isset($msg->channel))
-                throw new InvalidArgumentException('Missing Channel');
+                // Send response
+                $responder->send(json_encode($messageStats));
 
-            if (!isset($msg->key))
-                throw new InvalidArgumentException('Missing Key');
+                // Reset the stats
+                $messageStats = $messageStatsEmpty;
 
-            if (!isset($msg->message))
-                throw new InvalidArgumentException('Missing Message');
-
-            // Respond to this message
-            $responder->send(true);
-
-            // Make sure QOS is set
-            if (!isset($msg->qos)) {
-                // Default to highest priority for messages missing a QOS
-                $msg->qos = 10;
-            }
-
-            // Decide whether we should queue the message or send it immediately.
-            if ($msg->qos != 10) {
-                // Queue for the periodic poll to send
-                $log->debug('Queuing');
-                $messageQueue[] = $msg;
             } else {
-                // Send Immediately
-                $log->debug('Sending Immediately');
-                $publisher->sendmulti([$msg->channel, $msg->key, $msg->message]);
+                // Parse the message and expect a "channel" element
+                $msg = json_decode($msg);
+
+                if (!isset($msg->channel))
+                    throw new InvalidArgumentException('Missing Channel');
+
+                if (!isset($msg->key))
+                    throw new InvalidArgumentException('Missing Key');
+
+                if (!isset($msg->message))
+                    throw new InvalidArgumentException('Missing Message');
+
+                // Respond to this message
+                $responder->send(true);
+
+                // Make sure QOS is set
+                if (!isset($msg->qos)) {
+                    // Default to highest priority for messages missing a QOS
+                    $msg->qos = 10;
+                }
+
+                // Add to stats
+                $messageStats['messageCounters']['total']++;
+                $messageStats['messageCounters']['qos' . $msg->qos]++;
+
+                $currentQueueSize = count($messageQueue);
+                if ($currentQueueSize > $messageStats['peakQueueSize'])
+                    $messageStats['peakQueueSize'] = $currentQueueSize;
+
+                // Decide whether we should queue the message or send it immediately.
+                if ($msg->qos != 10) {
+                    // Queue for the periodic poll to send
+                    $log->debug('Queuing');
+                    $messageQueue[] = $msg;
+                } else {
+                    // Send Immediately
+                    $log->debug('Sending Immediately');
+                    $messageStats['messageCounters']['sent']++;
+                    $publisher->sendmulti([$msg->channel, $msg->key, $msg->message]);
+                }
             }
         }
         catch (InvalidArgumentException $e) {
@@ -140,7 +179,7 @@ try {
 
     // Queue Processor
     $log->debug('Adding a queue processor for every ' . $queuePoll . ' seconds');
-    $loop->addPeriodicTimer($queuePoll, function() use ($log, $publisher, &$messageQueue, $queueSize) {
+    $loop->addPeriodicTimer($queuePoll, function() use ($log, $publisher, &$messageQueue, $queueSize, &$messageStats) {
         // Is there work to be done
         if (count($messageQueue) > 0) {
             $log->debug('Queue Poll - work to be done.');
@@ -151,10 +190,14 @@ try {
 
             // Send up to X messages.
             for ($i = 0; $i < $queueSize; $i++) {
+                if ($i > count($messageQueue))
+                    break;
+
                 // Pop an element
                 $msg = array_pop($messageQueue);
 
                 // Send
+                $messageStats['messageCounters']['sent']++;
                 $publisher->sendmulti([$msg->channel, $msg->key, $msg->message]);
 
                 $log->debug('Popped ' . $i . ' from the queue, new queue size ' . count($messageQueue));
