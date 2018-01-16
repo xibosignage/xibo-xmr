@@ -152,15 +152,17 @@ try {
                 $messageStats['messageCounters']['total']++;
                 $messageStats['messageCounters']['qos' . $msg->qos]++;
 
-                $currentQueueSize = count($messageQueue);
-                if ($currentQueueSize > $messageStats['peakQueueSize'])
-                    $messageStats['peakQueueSize'] = $currentQueueSize;
-
                 // Decide whether we should queue the message or send it immediately.
                 if ($msg->qos != 10) {
                     // Queue for the periodic poll to send
                     $log->debug('Queuing');
                     $messageQueue[] = $msg;
+
+                    // Record peak queue
+                    $currentQueueSize = count($messageQueue);
+                    if ($currentQueueSize > $messageStats['peakQueueSize'])
+                        $messageStats['peakQueueSize'] = $currentQueueSize;
+
                 } else {
                     // Send Immediately
                     $log->debug('Sending Immediately');

@@ -1,3 +1,7 @@
+FROM composer:1.6 as composer
+COPY . /app
+RUN composer install --no-interaction --no-dev --ignore-platform-reqs --optimize-autoloader
+
 FROM alpine:3.6
 MAINTAINER Spring Signage Ltd <info@xibo.org.uk>
 
@@ -13,6 +17,7 @@ EXPOSE 9505 50001
 
 COPY ./entrypoint.sh /entrypoint.sh
 COPY . /opt/xmr
+COPY --from=composer /app/vendor /opt/xmr/vendor
 
 RUN chown -R nobody /opt/xmr && chmod 755 /entrypoint.sh
 
