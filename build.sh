@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-docker run --rm \
-    --volume $PWD:/app \
-    composer install --ignore-platform-reqs --optimize-autoloader
-
 docker run --rm --name xmr-build \
     -v "$PWD":/usr/src/myapp \
     -w /usr/src/myapp php:7.0-cli \
