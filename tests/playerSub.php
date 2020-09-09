@@ -1,8 +1,23 @@
 <?php
-/*
- * Spring Signage Ltd - http://www.springsignage.com
- * Copyright (C) 2015-18 Spring Signage Ltd
- * (playerSub.php)
+/**
+ * Copyright (C) 2020 Xibo Signage Ltd
+ *
+ * Xibo - Digital Signage - http://www.xibo.org.uk
+ *
+ * This file is part of Xibo.
+ *
+ * Xibo is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Xibo is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
  *
  * This is a player subscription mock file.
  * docker exec -it xiboxmr_xmr_1 sh -c "cd /opt/xmr/tests; php playerSub.php 1234"
@@ -16,11 +31,13 @@ if (!isset($argv[1]))
 $identity = $argv[1];
 
 // Use the same settings as the running XMR instance
-$config = json_decode(file_get_contents('../config.json'));
+#$config = json_decode(file_get_contents('../config.json'));
 
 $fp = fopen('key.pem', 'r');
 $privateKey = openssl_get_privatekey(fread($fp, 8192));
 fclose($fp);
+
+echo 'Sub to: ' . $identity;
 
 // Sub
 $loop = React\EventLoop\Factory::create();
@@ -28,7 +45,7 @@ $loop = React\EventLoop\Factory::create();
 $context = new React\ZMQ\Context($loop);
 
 $sub = $context->getSocket(ZMQ::SOCKET_SUB);
-$sub->connect($config->pubOn[0]);
+$sub->connect('tcp://192.168.86.88:36740');
 $sub->subscribe("H");
 $sub->subscribe($identity);
 
@@ -40,23 +57,13 @@ $sub->on('messages', function ($msg) use ($identity, $privateKey) {
             return;
 
         // Expect messages to have a length of 3
-        if (count($msg) != 3)
-            throw new InvalidArgumentException('Incorrect Message Length');
+        //if (count($msg) != 3)
+        //    throw new InvalidArgumentException('Incorrect Message Length');
 
         // Message will be channel, key, message
-        if ($msg[0] != $identity)
-            throw new InvalidArgumentException('Channel does not match');
+        //if ($msg[0] != $identity)
+        //    throw new InvalidArgumentException('Channel does not match');
 
-        // Decrypt the message using our private key
-        $opened = null;
-
-        $key = base64_decode($msg[1]);
-        $message = base64_decode($msg[2]);
-
-        if (!openssl_open($message, $opened, $key, $privateKey))
-            throw new Exception('Encryption Error');
-
-        echo 'Message: ' . $opened . PHP_EOL;
     }
     catch (InvalidArgumentException $e) {
         echo $e->getMessage() . PHP_EOL;

@@ -5,3 +5,5 @@ services:
     build: .
     environment:
       XMR_DEBUG: "true"
+    volumes:
+      - ./:/opt/xmr

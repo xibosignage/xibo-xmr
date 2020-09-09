@@ -7,15 +7,15 @@
     "spring signage"
   ],
   "homepage": "http://xibo.org.uk",
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-or-later",
   "authors": [
     {
       "name": "Daniel Garner",
       "homepage": "https://github.com/dasgarner"
     },
     {
-      "name": "Spring Signage Ltd",
-      "homepage": "http://springsignage.com"
+      "name": "Xibo Signage Ltd",
+      "homepage": "https://xibo.org.uk"
     },
     {
       "name": "Xibo Contributors",
@@ -23,8 +23,14 @@
     }
   ],
   "bin": ["bin/xmr.phar"],
+  "config": {
+    "platform": {
+      "php": "7.0.8",
+      "ext-zmq": "1"
+    }
+  },
   "require": {
-    "php": ">=5.5",
+    "php": ">=7.0.8",
     "monolog/monolog": "^1.17",
     "react/zmq": "^0.3.0"
   }
