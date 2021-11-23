@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+
+  release:
+    types: [ published ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    if: github.repository == 'xibosignage/xibo-xmr'
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+
+      - name: Login
+        run: |
+          docker login --username ${{ secrets.DOCKER_HUB_USERNAME }} --password ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build Latest
+        if: github.ref == 'refs/heads/master'
+        run: |
+          docker build . -t xibosignage/xibo-xmr:latest
+          docker push xibosignage/xibo-xmr:latest
+
+      - name: Build Release
+        if: github.event_name == 'release'
+        run: |
+          docker build . -t xibosignage/xibo-cms:${GITHUB_REF##*/}
+          docker push xibosignage/xibo-xmr:${GITHUB_REF##*/}
