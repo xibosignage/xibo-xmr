@@ -8,8 +8,7 @@ on:
   release:
     types: [ published ]
 
-  repository_dispatch:
-    types: build-docs
+  workflow_dispatch:
 
 jobs:
   build:
