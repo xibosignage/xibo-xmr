@@ -1,22 +1,35 @@
 <?php
-/*
- * Spring Signage Ltd - http://www.springsignage.com
- * Copyright (C) 2015-18 Spring Signage Ltd
- * (cmsSend.php)
+/**
+ * Copyright (C) 2022 Xibo Signage Ltd
+ *
+ * Xibo - Digital Signage - http://www.xibo.org.uk
+ *
+ * This file is part of Xibo.
+ *
+ * Xibo is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Xibo is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
  *
  * This is a CMS send MOCK
- *   execute with: docker exec -it xiboxmr_xmr_1 sh -c "cd /opt/xmr/tests; php cmsSend.php 1234"
+ *   execute with: docker-compose exec xmr sh -c "cd /opt/xmr/tests; php cmsSend.php 1234"
  *
  */
 require '../vendor/autoload.php';
 
-if (!isset($argv[1]))
+if (!isset($argv[1])) {
     die('Missing player identity' . PHP_EOL);
+}
 
 $identity = $argv[1];
-
-// Use the same settings as the running XMR instance
-$config = json_decode(file_get_contents('../config.json'));
 
 // Get the Public Key
 $fp = fopen('key.pub', 'r');
@@ -36,7 +49,7 @@ try {
         openssl_seal($i . ' - QOS1', $message, $eKeys, [$publicKey]);
 
         // Create a message and send.
-        send($config->listenOn, [
+        send('tcp://localhost:50001', [
             'channel' => $identity,
             'key' => base64_encode($eKeys[0]),
             'message' => base64_encode($message),
