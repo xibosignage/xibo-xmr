@@ -34,5 +34,5 @@ jobs:
       - name: Build Release
         if: github.event_name == 'release'
         run: |
-          docker build . -t xibosignage/xibo-cms:${GITHUB_REF##*/}
+          docker build . -t xibosignage/xibo-xmr:${GITHUB_REF##*/}
           docker push xibosignage/xibo-xmr:${GITHUB_REF##*/}
