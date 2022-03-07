@@ -136,30 +136,32 @@ try {
                 $messageStats['currentQueueSize'] = count($messageQueue);
 
                 // Send response
-                $responder->send(json_encode($messageStats));
+                $responder->send(json_encode($messageStats), \ZMQ::MODE_DONTWAIT);
 
                 // Reset the stats
                 $messageStats = $messageStatsEmpty;
-
             } else {
                 // Parse the message and expect a "channel" element
                 $msg = json_decode($msg);
 
-                if (!isset($msg->channel))
+                if (!isset($msg->channel)) {
                     throw new InvalidArgumentException('Missing Channel');
+                }
 
-                if (!isset($msg->key))
+                if (!isset($msg->key)) {
                     throw new InvalidArgumentException('Missing Key');
+                }
 
-                if (!isset($msg->message))
+                if (!isset($msg->message)) {
                     throw new InvalidArgumentException('Missing Message');
+                }
 
                 // Respond to this message
-                $responder->send(true);
+                $responder->send(true, \ZMQ::MODE_DONTWAIT);
 
                 // Make sure QOS is set
                 if (!isset($msg->qos)) {
-                    // Default to highest priority for messages missing a QOS
+                    // Default to the highest priority for messages missing a QOS
                     $msg->qos = 10;
                 }
 
@@ -175,20 +177,19 @@ try {
 
                     // Record peak queue
                     $currentQueueSize = count($messageQueue);
-                    if ($currentQueueSize > $messageStats['peakQueueSize'])
+                    if ($currentQueueSize > $messageStats['peakQueueSize']) {
                         $messageStats['peakQueueSize'] = $currentQueueSize;
-
+                    }
                 } else {
                     // Send Immediately
                     $log->debug('Sending Immediately');
                     $messageStats['messageCounters']['sent']++;
-                    $publisher->sendmulti([$msg->channel, $msg->key, $msg->message]);
+                    $publisher->sendmulti([$msg->channel, $msg->key, $msg->message], \ZMQ::MODE_DONTWAIT);
                 }
             }
-        }
-        catch (InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             // Return false
-            $responder->send(false);
+            $responder->send(false, \ZMQ::MODE_DONTWAIT);
 
             $log->error($e->getMessage());
         }
@@ -200,6 +201,7 @@ try {
         // Is there work to be done
         if (count($messageQueue) > 0) {
             $log->debug('Queue Poll - work to be done.');
+
             // Order the message queue according to QOS
             usort($messageQueue, function($a, $b) {
                 return ($a->qos === $b->qos) ? 0 : ($a->qos < $b->qos) ? -1 : 1;
@@ -207,15 +209,16 @@ try {
 
             // Send up to X messages.
             for ($i = 0; $i < $queueSize; $i++) {
-                if ($i > count($messageQueue))
+                if ($i > count($messageQueue)) {
                     break;
+                }
 
                 // Pop an element
                 $msg = array_pop($messageQueue);
 
                 // Send
                 $messageStats['messageCounters']['sent']++;
-                $publisher->sendmulti([$msg->channel, $msg->key, $msg->message]);
+                $publisher->sendmulti([$msg->channel, $msg->key, $msg->message], \ZMQ::MODE_DONTWAIT);
 
                 $log->debug('Popped ' . $i . ' from the queue, new queue size ' . count($messageQueue));
             }
@@ -225,13 +228,12 @@ try {
     // Periodic updater
     $loop->addPeriodicTimer(30, function() use ($log, $publisher) {
         $log->debug('Heartbeat...');
-        $publisher->sendmulti(["H", "", ""]);
+        $publisher->sendmulti(["H", "", ""], \ZMQ::MODE_DONTWAIT);
     });
 
     // Run the react event loop
     $loop->run();
-}
-catch (Exception $e) {
+} catch (Exception $e) {
     $log->error($e->getMessage());
     $log->error($e->getTraceAsString());
 }

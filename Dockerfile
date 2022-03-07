@@ -14,7 +14,7 @@ ENV XMR_IPV6PUBSUPPORT false
 RUN apk update && apk upgrade && apk add tar \
     php7 \
     curl \
-    php7-zmq \
+    php7-pecl-zmq \
     php7-phar \
     php7-json \
     php7-openssl \
