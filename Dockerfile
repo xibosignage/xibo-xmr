@@ -2,7 +2,7 @@ FROM composer:1.6 as composer
 COPY . /app
 RUN composer install --no-interaction --no-dev --ignore-platform-reqs --optimize-autoloader
 
-FROM alpine:3.11
+FROM alpine:3.15
 MAINTAINER Xibo Signage Ltd <info@xibo.org.uk>
 
 ENV XMR_DEBUG false

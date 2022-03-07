@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (C) 2020 Xibo Signage Ltd
+ * Copyright (C) 2022 Xibo Signage Ltd
  *
  * Xibo - Digital Signage - http://www.xibo.org.uk
  *
@@ -20,18 +20,16 @@
  * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
  *
  * This is a player subscription mock file.
- * docker exec -it xiboxmr_xmr_1 sh -c "cd /opt/xmr/tests; php playerSub.php 1234"
+ * docker-compose exec xmr sh -c "cd /opt/xmr/tests; php playerSub.php 1234"
  *
  */
 require '../vendor/autoload.php';
 
-if (!isset($argv[1]))
+if (!isset($argv[1])) {
     die('Missing player identity' . PHP_EOL);
+}
 
 $identity = $argv[1];
-
-// Use the same settings as the running XMR instance
-#$config = json_decode(file_get_contents('../config.json'));
 
 $fp = fopen('key.pem', 'r');
 $privateKey = openssl_get_privatekey(fread($fp, 8192));
@@ -45,7 +43,7 @@ $loop = React\EventLoop\Factory::create();
 $context = new React\ZMQ\Context($loop);
 
 $sub = $context->getSocket(ZMQ::SOCKET_SUB);
-$sub->connect('tcp://192.168.86.88:36740');
+$sub->connect('tcp://localhost:9505');
 $sub->subscribe("H");
 $sub->subscribe($identity);
 
@@ -53,17 +51,19 @@ $sub->on('messages', function ($msg) use ($identity, $privateKey) {
     try {
         echo '[' . date('Y-m-d H:i:s') . '] Received: ' . json_encode($msg) . PHP_EOL;
 
-        if ($msg[0] == "H")
+        if ($msg[0] == "H") {
             return;
+        }
 
         // Expect messages to have a length of 3
-        //if (count($msg) != 3)
-        //    throw new InvalidArgumentException('Incorrect Message Length');
+        if (count($msg) != 3) {
+            throw new InvalidArgumentException('Incorrect Message Length');
+        }
 
-        // Message will be channel, key, message
-        //if ($msg[0] != $identity)
-        //    throw new InvalidArgumentException('Channel does not match');
-
+        // Message will be: channel, key, message
+        if ($msg[0] != $identity) {
+            throw new InvalidArgumentException('Channel does not match');
+        }
     }
     catch (InvalidArgumentException $e) {
         echo $e->getMessage() . PHP_EOL;
