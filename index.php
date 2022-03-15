@@ -204,7 +204,7 @@ try {
 
             // Order the message queue according to QOS
             usort($messageQueue, function($a, $b) {
-                return ($a->qos === $b->qos) ? 0 : ($a->qos < $b->qos) ? -1 : 1;
+                return ($a->qos === $b->qos) ? 0 : (($a->qos < $b->qos) ? -1 : 1);
             });
 
             // Send up to X messages.

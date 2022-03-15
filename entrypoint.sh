@@ -11,4 +11,4 @@ echo '  "ipv6RespSupport": '$XMR_IPV6RESPSUPPORT',' >> /opt/xmr/config.json
 echo '  "ipv6PubSupport": '$XMR_IPV6PUBSUPPORT >> /opt/xmr/config.json
 echo '}' >> /opt/xmr/config.json
 
-/usr/bin/php7 /opt/xmr/index.php
+/usr/local/bin/php /opt/xmr/index.php
