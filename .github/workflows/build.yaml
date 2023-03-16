@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - develop
 
   release:
     types: [ published ]
@@ -30,6 +31,12 @@ jobs:
         run: |
           docker build . -t ghcr.io/xibosignage/xibo-xmr:latest
           docker push ghcr.io/xibosignage/xibo-xmr:latest
+
+      - name: Build Develop
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          docker build . -t ghcr.io/xibosignage/xibo-xmr:develop
+          docker push ghcr.io/xibosignage/xibo-xmr:develop
 
       - name: Build Release
         if: github.event_name == 'release'
