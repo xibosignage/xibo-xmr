@@ -14,7 +14,7 @@ jobs:
   build:
     name: Build
     if: github.repository == 'xibosignage/xibo-xmr'
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v1
@@ -23,16 +23,16 @@ jobs:
 
       - name: Login
         run: |
-          docker login --username ${{ secrets.DOCKER_HUB_USERNAME }} --password ${{ secrets.DOCKER_HUB_TOKEN }}
+          docker login ghcr.io --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Latest
         if: github.ref == 'refs/heads/master'
         run: |
-          docker build . -t xibosignage/xibo-xmr:latest
-          docker push xibosignage/xibo-xmr:latest
+          docker build . -t ghcr.io/xibosignage/xibo-xmr:latest
+          docker push ghcr.io/xibosignage/xibo-xmr:latest
 
       - name: Build Release
         if: github.event_name == 'release'
         run: |
-          docker build . -t xibosignage/xibo-xmr:${GITHUB_REF##*/}
-          docker push xibosignage/xibo-xmr:${GITHUB_REF##*/}
+          docker build . -t ghcr.io/xibosignage/xibo-xmr:${GITHUB_REF##*/}
+          docker push ghcr.io/xibosignage/xibo-xmr:${GITHUB_REF##*/}
