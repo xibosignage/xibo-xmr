@@ -24,6 +24,11 @@
  *
  */
 require '../vendor/autoload.php';
+$_MESSAGE_COUNT = 15;
+$_ENCRYPT = true;
+
+// Track
+$start = microtime(true);
 
 if (!isset($argv[1])) {
     die('Missing player identity' . PHP_EOL);
@@ -37,51 +42,59 @@ $publicKey = openssl_get_publickey(fread($fp, 8192));
 fclose($fp);
 
 try {
-
-    // Queue up a bunch of messages to see what happens
-    for ($i = 0; $i < 15; $i++) {
-
-        // Reference params
-        $message = null;
-        $eKeys = null;
-
-        // Encrypt a message
-        openssl_seal($i . ' - QOS1', $message, $eKeys, [$publicKey]);
-
-        // Create a message and send.
-        send('tcp://localhost:50001', [
-            'channel' => $identity,
-            'key' => base64_encode($eKeys[0]),
-            'message' => base64_encode($message),
-            'qos' => rand(1, 10)
-        ]);
-
-        usleep(500);
-    }
-
-} catch (Exception $e) {
-    echo $e->getMessage() . PHP_EOL;
-}
-
-openssl_free_key($publicKey);
-
-/**
- * @param $connection
- * @param $message
- * @return bool|string
- * @throws ZMQSocketException
- */
-function send($connection, $message)
-{
-    echo 'Sending to ' . $connection . PHP_EOL;
-
     // Issue a message payload to XMR.
     $context = new \ZMQContext();
 
     // Connect to socket
     $socket = new \ZMQSocket($context, \ZMQ::SOCKET_REQ);
-    $socket->connect($connection);
+    $socket->connect('tcp://localhost:50001');
 
+    // Queue up a bunch of messages to see what happens
+    for ($i = 0; $i < $_MESSAGE_COUNT; $i++) {
+        // Reference params
+        $message = null;
+        $eKeys = null;
+
+        if ($_ENCRYPT) {
+            // Encrypt a message
+            openssl_seal($i . ' - QOS1', $message, $eKeys, [$publicKey], 'RC4');
+
+            // Create a message and send.
+            send($socket, [
+                'channel' => $identity,
+                'key' => base64_encode($eKeys[0]),
+                'message' => base64_encode($message),
+                'qos' => rand(1, 10)
+            ]);
+        } else {
+            send($socket, [
+                'channel' => $identity,
+                'key' => 'key',
+                'message' => 'message ' . $i,
+                'qos' => rand(1, 10)
+            ]);
+        }
+
+        usleep(50);
+    }
+
+    // Disconnect socket
+    $socket->disconnect('tcp://localhost:50001');
+} catch (Exception $e) {
+    echo $e->getMessage() . PHP_EOL;
+}
+
+$end = microtime(true);
+echo PHP_EOL . 'Duration: ' . ($end - $start) . ', Start: ' . $start . ', End: ' . $end . PHP_EOL;
+
+/**
+ * @param $socket
+ * @param $message
+ * @return bool|string
+ * @throws ZMQSocketException
+ */
+function send($socket, $message)
+{
     // Send the message to the socket
     $socket->send(json_encode($message));
 
@@ -96,11 +109,10 @@ function send($connection, $message)
             // shall be returned.
             $reply = $socket->recv(\ZMQ::MODE_DONTWAIT);
 
-            echo 'Received ' . var_export($reply, true) . PHP_EOL;
-
             if ($reply !== false)
                 break;
 
+            echo '.';
         } catch (\ZMQSocketException $sockEx) {
             if ($sockEx->getCode() !== \ZMQ::ERR_EAGAIN)
                 throw $sockEx;
@@ -109,9 +121,6 @@ function send($connection, $message)
         usleep(100000);
 
     } while (--$retries);
-
-    // Disconnect socket
-    //$socket->disconnect($connection);
 
     return $reply;
 }
