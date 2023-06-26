@@ -25,13 +25,13 @@
   "bin": ["bin/xmr.phar"],
   "config": {
     "platform": {
-      "php": "7.4",
+      "php": "8.1",
       "ext-zmq": "1"
     }
   },
   "require": {
-    "php": ">=7.0.8",
+    "php": ">=8.1",
     "monolog/monolog": "^1.17",
-    "react/zmq": "^0.3.0"
+    "react/zmq": "^0.4.0"
   }
 }
