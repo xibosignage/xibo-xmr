@@ -207,9 +207,12 @@ try {
                 return ($a->qos === $b->qos) ? 0 : (($a->qos < $b->qos) ? -1 : 1);
             });
 
+            $log->debug('Queue Poll - message queue sorted');
+
             // Send up to X messages.
             for ($i = 0; $i < $queueSize; $i++) {
                 if ($i > count($messageQueue)) {
+                    $log->debug('Queue Poll - queue size reached');
                     break;
                 }
 
@@ -217,6 +220,8 @@ try {
                 $msg = array_pop($messageQueue);
 
                 // Send
+                $log->debug('Sending ' . $i);
+
                 $messageStats['messageCounters']['sent']++;
                 $publisher->sendmulti([$msg->channel, $msg->key, $msg->message], \ZMQ::MODE_DONTWAIT);
 
