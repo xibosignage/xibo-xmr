@@ -35,6 +35,8 @@ IHost host = Host.CreateDefaultBuilder(args)
         services.Configure<ZmqSettings>(hostContext.Configuration.GetSection("Zmq"));
         services.AddHostedService<Worker>();
     })
+    .UseWindowsService()
+    .UseSystemd()
     .Build();
 
 host.Run();
