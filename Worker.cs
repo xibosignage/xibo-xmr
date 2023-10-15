@@ -1,5 +1,25 @@
+/*
+ * Copyright (C) 2023 Xibo Signage Ltd
+ *
+ * Xibo - Digital Signage - https://xibosignage.com
+ *
+ * This file is part of Xibo.
+ *
+ * Xibo is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Xibo is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
+ */
+using System.Collections.Concurrent;
 using System.Text;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,13 +34,33 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly ZmqSettings _settings;
 
-    private readonly SynchronizedCollection<ZmqMessage> _queue;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos1;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos2;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos3;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos4;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos5;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos6;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos7;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos8;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos9;
+    private readonly ConcurrentQueue<ZmqMessage> _queueQos10;
+
+    private int _sentCount = 0;
 
     public Worker(ILogger<Worker> logger, IOptions<ZmqSettings> settings)
     {
         _logger = logger;
         _settings = settings.Value;
-        _queue = new();
+        _queueQos1 = new();
+        _queueQos2 = new();
+        _queueQos3 = new();
+        _queueQos4 = new();
+        _queueQos5 = new();
+        _queueQos6 = new();
+        _queueQos7 = new();
+        _queueQos8 = new();
+        _queueQos9 = new();
+        _queueQos10 = new();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -74,12 +114,13 @@ public class Worker : BackgroundService
             // Are we a request for stats?
             if (message.Equals("stats"))
             {
-                string json = GetJsonStats(_queue.Count, stats);
+                string json = GetJsonStats(GetCurrentQueueSize(), _sentCount, stats);
                 responseSocket.SendFrame(json);
                 _logger.LogDebug("{json}", json);
 
                 // Reset stats.
                 stats = NewStats();
+                Interlocked.Exchange(ref _sentCount, 0);
             }
             else
             {
@@ -108,11 +149,32 @@ public class Worker : BackgroundService
                     // Stats
                     stats["total"]++;
                     stats["" + zmqMessage.qos]++;
-                    stats["peak"] = Math.Max(stats["peak"], _queue.Count);
+                    stats["peak"] = Math.Max(stats["peak"], GetCurrentQueueSize() + 1);
 
                     // Add to the queue
                     _logger.LogDebug("Queuing");
-                    _queue.Add(zmqMessage);
+
+                    if (zmqMessage.qos == 1) {
+                        _queueQos1.Enqueue(zmqMessage);
+                    } else if (zmqMessage.qos == 2) {
+                        _queueQos2.Enqueue(zmqMessage);
+                    } else if (zmqMessage.qos == 3) {
+                        _queueQos3.Enqueue(zmqMessage);
+                    } else if (zmqMessage.qos == 4) {
+                        _queueQos4.Enqueue(zmqMessage);
+                    } else if (zmqMessage.qos == 5) {
+                        _queueQos5.Enqueue(zmqMessage);
+                    } else if (zmqMessage.qos == 6) {
+                        _queueQos6.Enqueue(zmqMessage);
+                    } else if (zmqMessage.qos == 7) {
+                        _queueQos7.Enqueue(zmqMessage);
+                    } else if (zmqMessage.qos == 8) {
+                        _queueQos8.Enqueue(zmqMessage);
+                    } else if (zmqMessage.qos == 9) {
+                        _queueQos9.Enqueue(zmqMessage);
+                    } else {
+                        _queueQos10.Enqueue(zmqMessage);
+                    }
 
                     // Reply
                     responseSocket.SendFrame("false");
@@ -156,37 +218,24 @@ public class Worker : BackgroundService
                 publisherSocket.SendMultipartMessage(ZmqMessage.Heartbeat());
             }
 
-            if (_queue.Count > 0)
+            int currentQueueSize = GetCurrentQueueSize();
+            if (currentQueueSize > 0)
             {
-                _logger.LogInformation("Queue Poll - work to be done");
-
-                // TODO sort the queue
+                _logger.LogInformation("Queue Poll - work to be done, queue size: {size}", currentQueueSize);
 
                 // Send up to X messages
                 int messagesToSend = _settings.queueSize ?? 10;
 
-                while (messagesToSend > 0)
-                {
-                    if (_queue.Count <= 0)
-                    {
-                        _logger.LogDebug("Queue Poll - queue size reached");
-                        break;
-                    }
-
-                    // Pop an element
-                    ZmqMessage message = _queue[0];
-                    _queue.Remove(message);
-
-                    _logger.LogDebug("Sending message");
-
-                    // TODO: increment sent stat
-
-                    publisherSocket.SendMultipartMessage(message.AsNetMqMessage());
-
-                    _logger.LogDebug("Popped 1 from the queue, new queue size {size}", _queue.Count);
-
-                    messagesToSend--;
-                }
+                ProcessQueue(publisherSocket, _queueQos10, ref messagesToSend);
+                ProcessQueue(publisherSocket, _queueQos9, ref messagesToSend);
+                ProcessQueue(publisherSocket, _queueQos8, ref messagesToSend);
+                ProcessQueue(publisherSocket, _queueQos7, ref messagesToSend);
+                ProcessQueue(publisherSocket, _queueQos6, ref messagesToSend);
+                ProcessQueue(publisherSocket, _queueQos5, ref messagesToSend);
+                ProcessQueue(publisherSocket, _queueQos4, ref messagesToSend);
+                ProcessQueue(publisherSocket, _queueQos3, ref messagesToSend);
+                ProcessQueue(publisherSocket, _queueQos2, ref messagesToSend);
+                ProcessQueue(publisherSocket, _queueQos1, ref messagesToSend);
             }
 
             heartbeatDue += pollingTime;
@@ -195,12 +244,37 @@ public class Worker : BackgroundService
         }
     }
 
+    private void ProcessQueue(PublisherSocket publisherSocket, ConcurrentQueue<ZmqMessage> queue, ref int messagesToSend)
+    {
+        try {
+            while (messagesToSend > 0)
+            {
+                bool result = queue.TryDequeue(out ZmqMessage message);
+                if (result && message != null)
+                {
+                    _logger.LogDebug("Sending message, qos {qos}", message.qos);
+                    publisherSocket.SendMultipartMessage(message.AsNetMqMessage());
+
+                    messagesToSend--;
+
+                    // increment sent stat
+                    Interlocked.Increment(ref _sentCount);
+                } else {
+                    break;
+                }
+            }
+        } 
+        catch (Exception e)
+        {
+            _logger.LogError("Process Queue: failed {e}", e.Message);
+        }
+    }
+
     private static Dictionary<string, int> NewStats()
     {
         return new()
             {
                 { "total", 0},
-                { "sent", 0 },
                 { "peak", 0 },
                 { "1", 0 },
                 { "2", 0 },
@@ -214,8 +288,22 @@ public class Worker : BackgroundService
                 { "10", 0 }
             };
     }
+
+    private int GetCurrentQueueSize()
+    {
+        return _queueQos1.Count
+            + _queueQos2.Count
+            + _queueQos3.Count
+            + _queueQos4.Count
+            + _queueQos5.Count
+            + _queueQos6.Count
+            + _queueQos7.Count
+            + _queueQos8.Count
+            + _queueQos9.Count
+            + _queueQos10.Count;
+    }
     
-    private static string GetJsonStats(int queueSize, Dictionary<string, int> stats)
+    private static string GetJsonStats(int queueSize, int sentCount, Dictionary<string, int> stats)
     {
         // Go through each and add a JSON string.
         StringBuilder sb = new();
@@ -233,7 +321,7 @@ public class Worker : BackgroundService
         writer.WritePropertyName("total");
         writer.WriteValue(stats["total"]);
         writer.WritePropertyName("sent");
-        writer.WriteValue(stats["sent"]);
+        writer.WriteValue(sentCount);
         writer.WritePropertyName("qos1");
         writer.WriteValue(stats["1"]);
         writer.WritePropertyName("qos2");

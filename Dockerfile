@@ -12,15 +12,21 @@ RUN dotnet publish -c Release -o out
 
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:7.0
+
+LABEL org.opencontainers.image.source=https://github.com/xibosignage/xibo-xmr
+LABEL org.opencontainers.image.description="Xibo Message Relay - XMR"
+LABEL org.opencontainers.image.licenses=AGPL-3.0-or-later
+LABEL org.opencontainers.image.authors="support@xibosignage.com"
+
 WORKDIR /App
 COPY --from=build-env /App/out .
 
 # Define some environment variables
-ENV XMR_DEBUG false
-ENV XMR_QUEUE_POLL 5
-ENV XMR_QUEUE_SIZE 10
-ENV XMR_IPV6RESPSUPPORT false
-ENV XMR_IPV6PUBSUPPORT false
+ENV Logging__LogLevel__Default "Information"
+ENV Zmq__listenOn "tcp://*:50001"
+ENV Zmq__pubOn__0 "tcp://*:9505"
+ENV Zmq__ipv6RespSupport false
+ENV Zmq__ipv6PubSupport false
 
 # Expose the ports
 EXPOSE 9505 50001
