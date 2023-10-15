@@ -57,7 +57,7 @@ try {
 
         if ($_ENCRYPT) {
             // Encrypt a message
-            openssl_seal($i . ' - QOS1', $message, $eKeys, [$publicKey]);
+            openssl_seal($i . ' - QOS1', $message, $eKeys, [$publicKey], 'RC4');
 
             // Create a message and send.
             send($socket, [
@@ -83,8 +83,6 @@ try {
 } catch (Exception $e) {
     echo $e->getMessage() . PHP_EOL;
 }
-
-openssl_free_key($publicKey);
 
 $end = microtime(true);
 echo PHP_EOL . 'Duration: ' . ($end - $start) . ', Start: ' . $start . ', End: ' . $end . PHP_EOL;
