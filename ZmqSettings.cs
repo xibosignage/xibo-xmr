@@ -27,6 +27,5 @@ public class ZmqSettings
     public int? queueSize {get; set; }
     public bool ipv6RespSupport { get; set; }
     public bool ipv6PubSupport { get; set; }
-
-    public bool XMR_DEBUG {get; set; }
+    public int? pubSendTimeoutMs { get; set; }
 }
