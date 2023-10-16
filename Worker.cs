@@ -90,6 +90,9 @@ public class Worker : BackgroundService
             Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, ResponderAsync(stoppingToken)); }, stoppingToken),
             Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, PublisherAsync(stoppingToken)); }, stoppingToken)
         );
+
+        // Must call clean up at the end
+        NetMQConfig.Cleanup();
     }
 
     async Task ResponderAsync(CancellationToken stoppingToken)
@@ -246,8 +249,10 @@ public class Worker : BackgroundService
     private void ProcessQueue(PublisherSocket publisherSocket, ConcurrentQueue<ZmqMessage> queue, ref int messagesToSend)
     {
         try {
+            bool isWork = messagesToSend > 0;
             while (messagesToSend > 0)
             {
+                _logger.LogDebug("Dequeue");
                 bool result = queue.TryDequeue(out ZmqMessage message);
                 if (result && message != null)
                 {
@@ -261,6 +266,10 @@ public class Worker : BackgroundService
                 } else {
                     break;
                 }
+            }
+
+            if (isWork) {
+                _logger.LogInformation("Queue empty or reached max send size");
             }
         } 
         catch (Exception e)
