@@ -249,15 +249,24 @@ public class Worker : BackgroundService
     private void ProcessQueue(PublisherSocket publisherSocket, ConcurrentQueue<ZmqMessage> queue, ref int messagesToSend)
     {
         try {
-            bool isWork = messagesToSend > 0;
+            bool isWork = !queue.IsEmpty;
             while (messagesToSend > 0)
             {
-                _logger.LogDebug("Dequeue");
                 bool result = queue.TryDequeue(out ZmqMessage message);
                 if (result && message != null)
                 {
                     _logger.LogDebug("Sending message, qos {qos}", message.qos);
-                    publisherSocket.SendMultipartMessage(message.AsNetMqMessage());
+
+                    // Send with a timeout.
+                    bool isSent = publisherSocket.TrySendMultipartMessage(
+                        TimeSpan.FromMilliseconds(_settings.pubSendTimeoutMs ?? 500),
+                        message.AsNetMqMessage()
+                    );
+
+                    if (!isSent)
+                    {
+                        _logger.LogError("Timeout sending message for channel: {channel} after {pubSendTimeoutMs}ms", message.channel, _settings.pubSendTimeoutMs ?? 500);
+                    }
 
                     messagesToSend--;
 
