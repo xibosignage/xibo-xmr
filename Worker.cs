@@ -86,11 +86,13 @@ public class Worker : BackgroundService
         // 2. Set up a Publisher (PUB) socket bound to `pubOn` which processes the queue
         // 3. Set up a periodic timer which sends a heartbeat message (H) every 30 seconds
         // -------
-        using var runtime = new NetMQRuntime();
-        runtime.Run(stoppingToken, ResponderAsync(stoppingToken), PublisherAsync(stoppingToken));
+        await Task.WhenAll(
+            Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, ResponderAsync(stoppingToken)); }, stoppingToken),
+            Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, PublisherAsync(stoppingToken)); }, stoppingToken)
+        );
 
-        // Delay before we start again
-        await Task.Delay(1000, stoppingToken);
+        // Must call clean up at the end
+        NetMQConfig.Cleanup();
     }
 
     async Task ResponderAsync(CancellationToken stoppingToken)
@@ -247,8 +249,10 @@ public class Worker : BackgroundService
     private void ProcessQueue(PublisherSocket publisherSocket, ConcurrentQueue<ZmqMessage> queue, ref int messagesToSend)
     {
         try {
+            bool isWork = messagesToSend > 0;
             while (messagesToSend > 0)
             {
+                _logger.LogDebug("Dequeue");
                 bool result = queue.TryDequeue(out ZmqMessage message);
                 if (result && message != null)
                 {
@@ -262,6 +266,10 @@ public class Worker : BackgroundService
                 } else {
                     break;
                 }
+            }
+
+            if (isWork) {
+                _logger.LogInformation("Queue empty or reached max send size");
             }
         } 
         catch (Exception e)

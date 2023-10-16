@@ -24,6 +24,19 @@ services:
      - "50001:50001"
 ```
 
+### Configuration
+The service can be configured with environment variables:
+
+```
+Logging__LogLevel__Default "Information"
+Zmq__queuePoll 5
+Zmq__queueSize 10
+Zmq__listenOn "tcp://*:50001"
+Zmq__pubOn__0 "tcp://*:9505"
+Zmq__ipv6RespSupport false
+Zmq__ipv6PubSupport false
+```
+
 
 ### Ports
 
