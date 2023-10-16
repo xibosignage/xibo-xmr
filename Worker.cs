@@ -86,11 +86,10 @@ public class Worker : BackgroundService
         // 2. Set up a Publisher (PUB) socket bound to `pubOn` which processes the queue
         // 3. Set up a periodic timer which sends a heartbeat message (H) every 30 seconds
         // -------
-        using var runtime = new NetMQRuntime();
-        runtime.Run(stoppingToken, ResponderAsync(stoppingToken), PublisherAsync(stoppingToken));
-
-        // Delay before we start again
-        await Task.Delay(1000, stoppingToken);
+        await Task.WhenAll(
+            Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, ResponderAsync(stoppingToken)); }, stoppingToken),
+            Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, PublisherAsync(stoppingToken)); }, stoppingToken)
+        );
     }
 
     async Task ResponderAsync(CancellationToken stoppingToken)

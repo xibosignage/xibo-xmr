@@ -21,13 +21,6 @@ LABEL org.opencontainers.image.authors="support@xibosignage.com"
 WORKDIR /App
 COPY --from=build-env /App/out .
 
-# Define some environment variables
-ENV Logging__LogLevel__Default "Information"
-ENV Zmq__listenOn "tcp://*:50001"
-ENV Zmq__pubOn__0 "tcp://*:9505"
-ENV Zmq__ipv6RespSupport false
-ENV Zmq__ipv6PubSupport false
-
 # Expose the ports
 EXPOSE 9505 50001
 
