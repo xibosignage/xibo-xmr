@@ -18,31 +18,39 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
  */
+using ConcurrentPriorityQueue.Core;
 using NetMQ;
 
 namespace xibo_xmr;
-public class ZmqMessage
+public class ZmqMessage : IHavePriority<int>
 {
     public string? channel { get; set; }
     public string? key {get; set; }
     public string? message {get; set; }
     public int? qos {get; set; }
+    public bool isHeartbeat { get; set; }
+
+    public int Priority {
+        get {
+            return (qos ?? 10) * -1;
+        }
+    }
 
     public NetMQMessage AsNetMqMessage()
     {
         NetMQMessage netMQFrames = new(3);
-        netMQFrames.Append(channel);
-        netMQFrames.Append(key);
-        netMQFrames.Append(message);
-        return netMQFrames;
-    }
-
-    public static NetMQMessage Heartbeat()
-    {
-        NetMQMessage netMQFrames = new(3);
-        netMQFrames.Append("H");
-        netMQFrames.Append("");
-        netMQFrames.Append("");
+        if (isHeartbeat)
+        {
+            netMQFrames.Append("H");
+            netMQFrames.Append("");
+            netMQFrames.Append("");
+        }
+        else 
+        {
+            netMQFrames.Append(channel);
+            netMQFrames.Append(key);
+            netMQFrames.Append(message);
+        }
         return netMQFrames;
     }
 }

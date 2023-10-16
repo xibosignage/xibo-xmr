@@ -20,6 +20,7 @@
  */
 using System.Collections.Concurrent;
 using System.Text;
+using ConcurrentPriorityQueue.Core;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -34,16 +35,7 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly ZmqSettings _settings;
 
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos1;
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos2;
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos3;
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos4;
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos5;
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos6;
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos7;
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos8;
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos9;
-    private readonly ConcurrentQueue<ZmqMessage> _queueQos10;
+    private readonly BlockingCollection<ZmqMessage> _queue;
 
     private int _sentCount = 0;
 
@@ -51,16 +43,7 @@ public class Worker : BackgroundService
     {
         _logger = logger;
         _settings = settings.Value;
-        _queueQos1 = new();
-        _queueQos2 = new();
-        _queueQos3 = new();
-        _queueQos4 = new();
-        _queueQos5 = new();
-        _queueQos6 = new();
-        _queueQos7 = new();
-        _queueQos8 = new();
-        _queueQos9 = new();
-        _queueQos10 = new();
+        _queue = new ConcurrentPriorityQueue<ZmqMessage, int>().ToBlockingCollection();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -87,10 +70,11 @@ public class Worker : BackgroundService
         // 3. Set up a periodic timer which sends a heartbeat message (H) every 30 seconds
         // -------
         await Task.WhenAll(
-            Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, ResponderAsync(stoppingToken)); }, stoppingToken),
-            Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, PublisherAsync(stoppingToken)); }, stoppingToken)
+            Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, ResponderAsync(stoppingToken)); }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default),
+            Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, PublisherAsync(stoppingToken)); }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default),
+            Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, HeartbeatAsync(stoppingToken)); }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default)
         );
-
+ 
         // Must call clean up at the end
         NetMQConfig.Cleanup();
     }
@@ -116,7 +100,7 @@ public class Worker : BackgroundService
             // Are we a request for stats?
             if (message.Equals("stats"))
             {
-                string json = GetJsonStats(GetCurrentQueueSize(), _sentCount, stats);
+                string json = GetJsonStats(_queue.Count, _sentCount, stats);
                 responseSocket.SendFrame(json);
                 _logger.LogDebug("{json}", json);
 
@@ -151,31 +135,14 @@ public class Worker : BackgroundService
                     // Stats
                     stats["total"]++;
                     stats["" + zmqMessage.qos]++;
-                    stats["peak"] = Math.Max(stats["peak"], GetCurrentQueueSize() + 1);
+                    stats["peak"] = Math.Max(stats["peak"], _queue.Count + 1);
 
                     // Add to the queue
                     _logger.LogDebug("Queuing");
-
-                    if (zmqMessage.qos == 1) {
-                        _queueQos1.Enqueue(zmqMessage);
-                    } else if (zmqMessage.qos == 2) {
-                        _queueQos2.Enqueue(zmqMessage);
-                    } else if (zmqMessage.qos == 3) {
-                        _queueQos3.Enqueue(zmqMessage);
-                    } else if (zmqMessage.qos == 4) {
-                        _queueQos4.Enqueue(zmqMessage);
-                    } else if (zmqMessage.qos == 5) {
-                        _queueQos5.Enqueue(zmqMessage);
-                    } else if (zmqMessage.qos == 6) {
-                        _queueQos6.Enqueue(zmqMessage);
-                    } else if (zmqMessage.qos == 7) {
-                        _queueQos7.Enqueue(zmqMessage);
-                    } else if (zmqMessage.qos == 8) {
-                        _queueQos8.Enqueue(zmqMessage);
-                    } else if (zmqMessage.qos == 9) {
-                        _queueQos9.Enqueue(zmqMessage);
-                    } else {
-                        _queueQos10.Enqueue(zmqMessage);
+                    bool result = _queue.TryAdd(zmqMessage);
+                    if (!result)
+                    {
+                        _logger.LogError("Failed to add message to the queue");
                     }
 
                     // Reply
@@ -191,7 +158,7 @@ public class Worker : BackgroundService
 
     async Task PublisherAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Queue polling every {poll} seconds.", _settings.queuePoll ?? 10);
+        _logger.LogInformation("Creating a publisher socket.");
 
         using var publisherSocket = new PublisherSocket();
 
@@ -206,56 +173,25 @@ public class Worker : BackgroundService
             publisherSocket.Bind(pub);
         }
 
-        // Track the poll count
-        int pollingTime = (_settings.queuePoll ?? 10) * 1000;
-        int heartbeatDue = 20000;
-
-        while (!stoppingToken.IsCancellationRequested)
+        // Long running task
+        await Task.Run(() =>
         {
-            if (heartbeatDue >= 30000)
+            // The queue is never complete
+            while (!_queue.IsCompleted)
             {
-                heartbeatDue = 0;
+                _logger.LogDebug("Waiting for message");
 
-                _logger.LogDebug("Heartbeat...");
-                publisherSocket.SendMultipartMessage(ZmqMessage.Heartbeat());
-            }
-
-            int currentQueueSize = GetCurrentQueueSize();
-            if (currentQueueSize > 0)
-            {
-                _logger.LogInformation("Queue Poll - work to be done, queue size: {size}", currentQueueSize);
-
-                // Send up to X messages
-                int messagesToSend = _settings.queueSize ?? 10;
-
-                ProcessQueue(publisherSocket, _queueQos10, ref messagesToSend);
-                ProcessQueue(publisherSocket, _queueQos9, ref messagesToSend);
-                ProcessQueue(publisherSocket, _queueQos8, ref messagesToSend);
-                ProcessQueue(publisherSocket, _queueQos7, ref messagesToSend);
-                ProcessQueue(publisherSocket, _queueQos6, ref messagesToSend);
-                ProcessQueue(publisherSocket, _queueQos5, ref messagesToSend);
-                ProcessQueue(publisherSocket, _queueQos4, ref messagesToSend);
-                ProcessQueue(publisherSocket, _queueQos3, ref messagesToSend);
-                ProcessQueue(publisherSocket, _queueQos2, ref messagesToSend);
-                ProcessQueue(publisherSocket, _queueQos1, ref messagesToSend);
-            }
-
-            heartbeatDue += pollingTime;
-
-            await Task.Delay(pollingTime, stoppingToken);
-        }
-    }
-
-    private void ProcessQueue(PublisherSocket publisherSocket, ConcurrentQueue<ZmqMessage> queue, ref int messagesToSend)
-    {
-        try {
-            bool isWork = !queue.IsEmpty;
-            while (messagesToSend > 0)
-            {
-                bool result = queue.TryDequeue(out ZmqMessage message);
+                bool result = _queue.TryTake(out ZmqMessage message, -1, stoppingToken);
                 if (result && message != null)
                 {
-                    _logger.LogDebug("Sending message, qos {qos}", message.qos);
+                    if (message.isHeartbeat)
+                    {
+                        _logger.LogDebug("Heartbeat...");
+                    }
+                    else
+                    {
+                        _logger.LogDebug("Sending message, qos {qos}, queue size {size}", message.qos, _queue.Count);
+                    }
 
                     // Send with a timeout.
                     bool isSent = publisherSocket.TrySendMultipartMessage(
@@ -268,22 +204,24 @@ public class Worker : BackgroundService
                         _logger.LogError("Timeout sending message for channel: {channel} after {pubSendTimeoutMs}ms", message.channel, _settings.pubSendTimeoutMs ?? 500);
                     }
 
-                    messagesToSend--;
-
                     // increment sent stat
-                    Interlocked.Increment(ref _sentCount);
-                } else {
-                    break;
+                    if (!message.isHeartbeat)
+                    {
+                        Interlocked.Increment(ref _sentCount);
+                    }
                 }
             }
 
-            if (isWork) {
-                _logger.LogInformation("Queue empty or reached max send size");
-            }
-        } 
-        catch (Exception e)
+            _logger.LogInformation("Queue completed");
+        }, stoppingToken);
+    }
+
+    async Task HeartbeatAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
         {
-            _logger.LogError("Process Queue: failed {e}", e.Message);
+            _queue.TryAdd(new ZmqMessage { isHeartbeat = true, qos = 5});
+            await Task.Delay(30000, stoppingToken);
         }
     }
 
@@ -304,20 +242,6 @@ public class Worker : BackgroundService
                 { "9", 0 },
                 { "10", 0 }
             };
-    }
-
-    private int GetCurrentQueueSize()
-    {
-        return _queueQos1.Count
-            + _queueQos2.Count
-            + _queueQos3.Count
-            + _queueQos4.Count
-            + _queueQos5.Count
-            + _queueQos6.Count
-            + _queueQos7.Count
-            + _queueQos8.Count
-            + _queueQos9.Count
-            + _queueQos10.Count;
     }
     
     private static string GetJsonStats(int queueSize, int sentCount, Dictionary<string, int> stats)
