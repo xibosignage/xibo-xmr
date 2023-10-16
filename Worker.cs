@@ -19,6 +19,7 @@
  * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
  */
 using System.Collections.Concurrent;
+using System.Linq.Expressions;
 using System.Text;
 using ConcurrentPriorityQueue.Core;
 using Microsoft.Extensions.Hosting;
@@ -35,7 +36,7 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly ZmqSettings _settings;
 
-    private readonly BlockingCollection<ZmqMessage> _queue;
+    private readonly ConcurrentPriorityQueue<ZmqMessage, int> _queue;
 
     private int _sentCount = 0;
 
@@ -43,7 +44,7 @@ public class Worker : BackgroundService
     {
         _logger = logger;
         _settings = settings.Value;
-        _queue = new ConcurrentPriorityQueue<ZmqMessage, int>().ToBlockingCollection();
+        _queue = new();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -173,15 +174,15 @@ public class Worker : BackgroundService
             publisherSocket.Bind(pub);
         }
 
-        // Long running task
-        await Task.Run(() =>
+        while (!stoppingToken.IsCancellationRequested)
         {
-            // The queue is never complete
-            while (!_queue.IsCompleted)
-            {
-                _logger.LogDebug("Waiting for message");
+            // Process in batches
+            int batchCount = 0;
+            _logger.LogDebug("Batch start");
 
-                bool result = _queue.TryTake(out ZmqMessage message, -1, stoppingToken);
+            while (batchCount < (_settings.queueSize ?? 10))
+            {
+                bool result = _queue.TryTake(out ZmqMessage message);
                 if (result && message != null)
                 {
                     if (message.isHeartbeat)
@@ -209,11 +210,20 @@ public class Worker : BackgroundService
                     {
                         Interlocked.Increment(ref _sentCount);
                     }
+
+                    batchCount++;
+                }
+                else
+                {
+                    _logger.LogDebug("Queue empty");
+                    break;
                 }
             }
 
-            _logger.LogInformation("Queue completed");
-        }, stoppingToken);
+            _logger.LogDebug("Batch complete");
+
+            await Task.Delay(TimeSpan.FromSeconds(_settings.queuePoll ?? 5), stoppingToken);
+        }
     }
 
     async Task HeartbeatAsync(CancellationToken stoppingToken)

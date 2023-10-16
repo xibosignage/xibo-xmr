@@ -47,9 +47,9 @@ public class ZmqMessage : IHavePriority<int>
         }
         else 
         {
-            netMQFrames.Append(channel);
-            netMQFrames.Append(key);
-            netMQFrames.Append(message);
+            netMQFrames.Append(channel ?? "");
+            netMQFrames.Append(key ?? "");
+            netMQFrames.Append(message ?? "");
         }
         return netMQFrames;
     }
