@@ -1,38 +1,34 @@
-FROM composer:1.6 as composer
-COPY . /app
-RUN composer install --no-interaction --no-dev --ignore-platform-reqs --optimize-autoloader
+FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build-env
+WORKDIR /App
 
-FROM php:8.1-cli
-MAINTAINER Xibo Signage Ltd <info@xibo.org.uk>
+# Copy everything
+COPY . ./
 
-ENV XMR_DEBUG false
-ENV XMR_QUEUE_POLL 5
-ENV XMR_QUEUE_SIZE 10
-ENV XMR_IPV6RESPSUPPORT false
-ENV XMR_IPV6PUBSUPPORT false
+# Restore as distinct layers
+RUN dotnet restore
 
-RUN apt-get update && apt-get install -y libzmq3-dev git \
-    && rm -rf /var/lib/apt/lists/*
+# Build and publish a release
+RUN dotnet publish -c Release -o out
 
-RUN git clone https://github.com/zeromq/php-zmq.git \
-    && cd php-zmq \
-    && phpize && ./configure \
-    && make \
-    && make install \
-    && cd .. \
-    && rm -fr php-zmq
+# Build runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:7.0
 
-RUN docker-php-ext-enable zmq
+LABEL org.opencontainers.image.source=https://github.com/xibosignage/xibo-xmr
+LABEL org.opencontainers.image.description="Xibo Message Relay - XMR"
+LABEL org.opencontainers.image.licenses=AGPL-3.0-or-later
+LABEL org.opencontainers.image.authors="support@xibosignage.com"
 
+WORKDIR /App
+COPY --from=build-env /App/out .
+
+# Define some environment variables
+ENV Logging__LogLevel__Default "Information"
+ENV Zmq__listenOn "tcp://*:50001"
+ENV Zmq__pubOn__0 "tcp://*:9505"
+ENV Zmq__ipv6RespSupport false
+ENV Zmq__ipv6PubSupport false
+
+# Expose the ports
 EXPOSE 9505 50001
 
-COPY ./entrypoint.sh /entrypoint.sh
-COPY . /opt/xmr
-COPY --from=composer /app/vendor /opt/xmr/vendor
-
-RUN chown -R nobody /opt/xmr && chmod 755 /entrypoint.sh
-
-# Start XMR
-USER nobody
-
-CMD ["/entrypoint.sh"]
+ENTRYPOINT ["dotnet", "xibo-xmr.dll"]

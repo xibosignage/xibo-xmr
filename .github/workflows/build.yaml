@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - develop
+      - dotnet
 
   release:
     types: [ published ]
@@ -37,6 +38,12 @@ jobs:
         run: |
           docker build . -t ghcr.io/xibosignage/xibo-xmr:develop
           docker push ghcr.io/xibosignage/xibo-xmr:develop
+
+      - name: Build Develop
+        if: github.ref == 'refs/heads/dotnet'
+        run: |
+          docker build . -t ghcr.io/xibosignage/xibo-xmr:dotnet
+          docker push ghcr.io/xibosignage/xibo-xmr:dotnet
 
       - name: Build Release
         if: github.event_name == 'release'
