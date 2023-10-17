@@ -28,4 +28,5 @@ public class ZmqSettings
     public bool ipv6RespSupport { get; set; }
     public bool ipv6PubSupport { get; set; }
     public int? pubSendTimeoutMs { get; set; }
+    public string? relayOn {get; set; }
 }

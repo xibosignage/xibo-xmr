@@ -19,11 +19,8 @@
  * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
  */
 using System.Collections.Concurrent;
-using System.Linq.Expressions;
 using System.Text;
 using ConcurrentPriorityQueue.Core;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetMQ;
 using NetMQ.Sockets;
@@ -38,6 +35,8 @@ public class Worker : BackgroundService
 
     private readonly ConcurrentPriorityQueue<ZmqMessage, int> _queue;
 
+    private readonly BlockingCollection<string> _relayQueue;
+
     private int _sentCount = 0;
 
     public Worker(ILogger<Worker> logger, IOptions<ZmqSettings> settings)
@@ -45,6 +44,7 @@ public class Worker : BackgroundService
         _logger = logger;
         _settings = settings.Value;
         _queue = new();
+        _relayQueue = new();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -69,12 +69,23 @@ public class Worker : BackgroundService
         //    messages arriving from the CMS and adds them to the queue with the right QoS
         // 2. Set up a Publisher (PUB) socket bound to `pubOn` which processes the queue
         // 3. Set up a periodic timer which sends a heartbeat message (H) every 30 seconds
+        // 4. Handle relay if set
         // -------
-        await Task.WhenAll(
+        List<Task> tasks = new()
+        {
             Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, ResponderAsync(stoppingToken)); }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default),
             Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, PublisherAsync(stoppingToken)); }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default),
             Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, HeartbeatAsync(stoppingToken)); }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default)
-        );
+        };
+
+        // Do we relay?
+        if (!string.IsNullOrEmpty(_settings.relayOn))
+        {
+            tasks.Add(Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, RelayAsync(stoppingToken)); }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default));
+        }
+
+        // Await all
+        await Task.WhenAll(tasks);
  
         // Must call clean up at the end
         NetMQConfig.Cleanup();
@@ -111,6 +122,16 @@ public class Worker : BackgroundService
             }
             else
             {
+                // Relay
+                if (!string.IsNullOrEmpty(_settings.relayOn))
+                {
+                    bool relayResult = _relayQueue.TryAdd(message);
+                    if (!relayResult)
+                    {
+                        _logger.LogError("Failed to add message to the relay queue");
+                    }
+                }
+
                 // Decode the message
                 try
                 {
@@ -232,6 +253,27 @@ public class Worker : BackgroundService
         {
             _queue.TryAdd(new ZmqMessage { isHeartbeat = true, qos = 5});
             await Task.Delay(30000, stoppingToken);
+        }
+    }
+
+    async Task RelayAsync(CancellationToken stoppingToken)
+    {
+        using var relaySocket = new RequestSocket(_settings.relayOn);
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await Task.Run(() => {
+                bool result = _relayQueue.TryTake(out string message, -1, stoppingToken);
+                if (result && !string.IsNullOrEmpty(message))
+                {
+                    _logger.LogDebug("Relay message");
+                    bool sendResult = relaySocket.TrySendFrame(message);
+                    if (!sendResult)
+                    {
+                        _logger.LogError("Unable to relay message");
+                    }
+                }
+            }, stoppingToken);
         }
     }
 
