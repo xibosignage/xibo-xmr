@@ -267,12 +267,19 @@ public class Worker : BackgroundService
             bool result = _relayQueue.TryTake(out string message, -1, stoppingToken);
             if (result && !string.IsNullOrEmpty(message))
             {
-                _logger.LogDebug("Relay message");
                 bool sendResult = relaySocket.TrySendFrame(message);
                 if (!sendResult)
                 {
                     _logger.LogError("Unable to relay message");
                 }
+
+                bool receiveResult = relaySocket.TryReceiveFrameString(TimeSpan.FromMilliseconds(500), out string sendReturn);
+                if (!receiveResult)
+                {
+                    _logger.LogError("Unable to relay message, no response");
+                }
+
+                _logger.LogDebug("Relay message: {return}", sendReturn);
             }
         }
 
