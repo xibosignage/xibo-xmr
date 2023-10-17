@@ -81,7 +81,7 @@ public class Worker : BackgroundService
         // Do we relay?
         if (!string.IsNullOrEmpty(_settings.relayOn))
         {
-            tasks.Add(Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, RelayAsync(stoppingToken)); }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default));
+            tasks.Add(Task.Factory.StartNew(() => { new NetMQRuntime().Run(stoppingToken, Relay(stoppingToken)); }, stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default));
         }
 
         // Await all
@@ -256,25 +256,27 @@ public class Worker : BackgroundService
         }
     }
 
-    async Task RelayAsync(CancellationToken stoppingToken)
+    Task Relay(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("Creating a relay socket");
+
         using var relaySocket = new RequestSocket(_settings.relayOn);
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Run(() => {
-                bool result = _relayQueue.TryTake(out string message, -1, stoppingToken);
-                if (result && !string.IsNullOrEmpty(message))
+            bool result = _relayQueue.TryTake(out string message, -1, stoppingToken);
+            if (result && !string.IsNullOrEmpty(message))
+            {
+                _logger.LogDebug("Relay message");
+                bool sendResult = relaySocket.TrySendFrame(message);
+                if (!sendResult)
                 {
-                    _logger.LogDebug("Relay message");
-                    bool sendResult = relaySocket.TrySendFrame(message);
-                    if (!sendResult)
-                    {
-                        _logger.LogError("Unable to relay message");
-                    }
+                    _logger.LogError("Unable to relay message");
                 }
-            }, stoppingToken);
+            }
         }
+
+        return Task.CompletedTask;
     }
 
     private static Dictionary<string, int> NewStats()
