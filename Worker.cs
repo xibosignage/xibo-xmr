@@ -261,6 +261,7 @@ public class Worker : BackgroundService
         _logger.LogInformation("Creating a relay socket");
 
         using var relaySocket = new RequestSocket(_settings.relayOn);
+        relaySocket.Options.Relaxed = true;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -277,6 +278,7 @@ public class Worker : BackgroundService
                 if (!receiveResult)
                 {
                     _logger.LogError("Unable to relay message, no response");
+                    _logger.LogDebug("Failed message: {message}", message);
                 }
 
                 _logger.LogDebug("Relay message: {return}", sendReturn);
