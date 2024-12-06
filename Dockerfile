@@ -1,9 +1,9 @@
-FROM composer:1.6 as composer
+FROM composer as composer
 COPY . /app
 RUN composer install --no-interaction --no-dev --ignore-platform-reqs --optimize-autoloader
 
-FROM php:8.1-cli
-MAINTAINER Xibo Signage Ltd <info@xibo.org.uk>
+FROM php:8.2-cli
+MAINTAINER Xibo Signage Ltd <info@xibosignage.com>
 
 ENV XMR_DEBUG false
 ENV XMR_QUEUE_POLL 5
@@ -24,7 +24,7 @@ RUN git clone https://github.com/zeromq/php-zmq.git \
 
 RUN docker-php-ext-enable zmq
 
-EXPOSE 9505 50001
+EXPOSE 8080 8081 9505
 
 COPY ./entrypoint.sh /entrypoint.sh
 COPY . /opt/xmr

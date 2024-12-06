@@ -35,7 +35,7 @@ $fp = fopen('key.pem', 'r');
 $privateKey = openssl_get_privatekey(fread($fp, 8192));
 fclose($fp);
 
-echo 'Sub to: ' . $identity;
+echo 'Sub to: ' . $identity . PHP_EOL;
 
 // Sub
 $loop = React\EventLoop\Factory::create();

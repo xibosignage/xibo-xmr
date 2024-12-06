@@ -25,7 +25,7 @@
  */
 require '../vendor/autoload.php';
 $_MESSAGE_COUNT = 15;
-$_ENCRYPT = true;
+$_ENCRYPT = false;
 
 // Track
 $start = microtime(true);
@@ -35,6 +35,7 @@ if (!isset($argv[1])) {
 }
 
 $identity = $argv[1];
+$isWebSocket = ($argv[2] ?? false) === 'websocket';
 
 // Get the Public Key
 $fp = fopen('key.pub', 'r');
@@ -42,12 +43,16 @@ $publicKey = openssl_get_publickey(fread($fp, 8192));
 fclose($fp);
 
 try {
-    // Issue a message payload to XMR.
-    $context = new \ZMQContext();
+    //open connection
+    $ch = curl_init();
 
-    // Connect to socket
-    $socket = new \ZMQSocket($context, \ZMQ::SOCKET_REQ);
-    $socket->connect('tcp://localhost:50001');
+    //set the url, number of POST vars, POST data
+    curl_setopt($ch,CURLOPT_URL, 'http://localhost:8081');
+    curl_setopt($ch,CURLOPT_POST, true);
+    curl_setopt( $ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+
+    // So that curl_exec returns the contents of the cURL; rather than echoing it
+    curl_setopt($ch,CURLOPT_RETURNTRANSFER, true);
 
     // Queue up a bunch of messages to see what happens
     for ($i = 0; $i < $_MESSAGE_COUNT; $i++) {
@@ -60,26 +65,32 @@ try {
             openssl_seal($i . ' - QOS1', $message, $eKeys, [$publicKey], 'RC4');
 
             // Create a message and send.
-            send($socket, [
+            $fields = [
                 'channel' => $identity,
                 'key' => base64_encode($eKeys[0]),
                 'message' => base64_encode($message),
-                'qos' => rand(1, 10)
-            ]);
+                'qos' => rand(1, 10),
+                'isWebSocket' => $isWebSocket,
+            ];
         } else {
-            send($socket, [
+            $fields = [
                 'channel' => $identity,
                 'key' => 'key',
                 'message' => 'message ' . $i,
-                'qos' => rand(1, 10)
-            ]);
+                'qos' => rand(1, 10),
+                'isWebSocket' => $isWebSocket,
+            ];
         }
+
+
+        curl_setopt($ch,CURLOPT_POSTFIELDS, json_encode($fields));
+
+        //execute post
+        $result = curl_exec($ch);
+        echo $result . PHP_EOL;
 
         usleep(50);
     }
-
-    // Disconnect socket
-    $socket->disconnect('tcp://localhost:50001');
 } catch (Exception $e) {
     echo $e->getMessage() . PHP_EOL;
 }

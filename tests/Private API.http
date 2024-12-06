@@ -1,0 +1,19 @@
+POST http://localhost:8081
+Content-Type: application/json
+
+{
+  "type": "stats"
+}
+
+###
+
+POST http://localhost:8081
+Content-Type: application/json
+
+{
+  "type": "keys",
+  "url": "http://localhost",
+  "key": "123456"
+}
+
+###
