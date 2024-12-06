@@ -171,7 +171,7 @@ try {
                         $log->info('Display ' . $msg->channel . ' not connected');
                         continue;
                     }
-                    $display->connection->send(json_encode($msg));
+                    $display->connection->send($msg->message);
                 } else {
                     $publisher->sendmulti([$msg->channel, $msg->key, $msg->message], \ZMQ::MODE_DONTWAIT);
                 }
