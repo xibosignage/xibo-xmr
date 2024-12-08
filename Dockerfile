@@ -1,15 +1,14 @@
-FROM composer as composer
+FROM composer AS composer
 COPY . /app
 RUN composer install --no-interaction --no-dev --ignore-platform-reqs --optimize-autoloader
 
 FROM php:8.2-cli
-MAINTAINER Xibo Signage Ltd <info@xibosignage.com>
+LABEL org.opencontainers.image.authors="Xibo Signage Ltd <info@xibosignage.com>"
 
-ENV XMR_DEBUG false
-ENV XMR_QUEUE_POLL 5
-ENV XMR_QUEUE_SIZE 10
-ENV XMR_IPV6RESPSUPPORT false
-ENV XMR_IPV6PUBSUPPORT false
+ENV XMR_DEBUG=false
+ENV XMR_QUEUE_POLL=5
+ENV XMR_QUEUE_SIZE=10
+ENV XMR_IPV6PUBSUPPORT=false
 
 RUN apt-get update && apt-get install -y libzmq3-dev git \
     && rm -rf /var/lib/apt/lists/*

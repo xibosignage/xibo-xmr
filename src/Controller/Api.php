@@ -30,7 +30,7 @@ class Api
             return Response::json($this->queue->flushStats());
         } else if ($type === 'keys') {
             // Register new keys for this CMS.
-            $this->queue->addKey($message['url'], $message['key']);
+            $this->queue->addKey($message['id'], $message['key']);
         } else if ($type === 'multi') {
             $this->logger->debug('Queuing multiple messages');
             foreach ($message['messages'] as $message) {

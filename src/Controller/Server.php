@@ -58,12 +58,7 @@ class Server implements MessageComponentInterface
         // We are only expecting one message, which initialises the connection.
         try {
             if (($json['type'] ?? 'empty') === 'init') {
-                // The display should pass us a key and a CMS URL
-                $cmsUrl = $json['cmsUrl'] ?? null;
-                if (empty($cmsUrl)) {
-                    throw new \InvalidArgumentException('Missing cmsUrl');
-                }
-
+                // The display should pass us a key
                 $key = $json['key'] ?? null;
                 if (empty($key)) {
                     throw new \InvalidArgumentException('Missing key');
@@ -75,7 +70,7 @@ class Server implements MessageComponentInterface
                 }
 
                 // Validate the key provided
-                if (!$this->queue->authKey($cmsUrl, $key)) {
+                if (!$this->queue->authKey($key)) {
                     throw new \InvalidArgumentException('Invalid key');
                 }
 

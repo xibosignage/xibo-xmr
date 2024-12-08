@@ -12,7 +12,7 @@ Content-Type: application/json
 
 {
   "type": "keys",
-  "url": "http://localhost",
+  "id": "http://localhost",
   "key": "123456"
 }
 

@@ -147,14 +147,11 @@ class Queue
         // TODO: Remove expired keys.
     }
 
-    public function authKey(string $instance, string $key): bool
+    public function authKey(string $providedKey): bool
     {
-        if (!array_key_exists($instance, $this->instances)) {
-            return false;
-        }
-
-        foreach ($this->instances[$instance]['keys'] as $key) {
-            if (time() < $key['expires']) {
+        foreach ($this->instances as $instance)
+        foreach ($instance['keys'] as $key) {
+            if ($key['key'] === $providedKey && time() < $key['expires']) {
                 return true;
             }
         }
