@@ -31,6 +31,11 @@ class Api
         } else if ($type === 'keys') {
             // Register new keys for this CMS.
             $this->queue->addKey($message['url'], $message['key']);
+        } else if ($type === 'multi') {
+            $this->logger->debug('Queuing multiple messages');
+            foreach ($message['messages'] as $message) {
+                $this->queue->queueItem($message);
+            }
         } else {
             $this->logger->debug('Queuing');
             $this->queue->queueItem($message);
