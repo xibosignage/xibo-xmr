@@ -192,6 +192,12 @@ try {
         $publisher->sendmulti(["H", "", ""], \ZMQ::MODE_DONTWAIT);
     });
 
+    // Key management
+    $loop->addPeriodicTimer(3600, function() use ($log, $messageQueue) {
+        $log->debug('Key management...');
+        $messageQueue->expireKeys();
+    });
+
     // Run the React event loop
     $loop->run();
 } catch (Exception $e) {

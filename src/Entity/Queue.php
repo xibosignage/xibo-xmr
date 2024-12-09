@@ -143,19 +143,38 @@ class Queue
             'key' => $key,
             'expires' => time() + 86400,
         ];
-
-        // TODO: Remove expired keys.
     }
 
     public function authKey(string $providedKey): bool
     {
-        foreach ($this->instances as $instance)
-        foreach ($instance['keys'] as $key) {
-            if ($key['key'] === $providedKey && time() < $key['expires']) {
-                return true;
+        foreach ($this->instances as $instance) {
+            foreach ($instance['keys'] as $key) {
+                if ($key['key'] === $providedKey && time() < $key['expires']) {
+                    return true;
+                }
             }
         }
 
         return false;
+    }
+
+    public function expireKeys(): void
+    {
+        // Expire keys within each instance
+        foreach ($this->instances as $instance) {
+            for ($i = 0; $i < count($instance['keys']); $i++) {
+                // Expire any keys which are no longer in date.
+                if (time() >= $instance['keys'][$i]['expires']) {
+                    unset($instance['keys'][$i]);
+                }
+            }
+        }
+
+        // Remove instances with no keys
+        for ($j = 0; $j < count($this->instances); $j++) {
+            if (count($this->instances[$j]['keys']) <= 0) {
+                unset($this->instances[$j]);
+            }
+        }
     }
 }
