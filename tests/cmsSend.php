@@ -1,8 +1,8 @@
 <?php
-/**
- * Copyright (C) 2022 Xibo Signage Ltd
+/*
+ * Copyright (C) 2024 Xibo Signage Ltd
  *
- * Xibo - Digital Signage - http://www.xibo.org.uk
+ * Xibo - Digital Signage - https://xibosignage.com
  *
  * This file is part of Xibo.
  *
@@ -18,11 +18,9 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
- *
- * This is a CMS send MOCK
- *   execute with: docker-compose exec xmr sh -c "cd /opt/xmr/tests; php cmsSend.php 1234"
- *
  */
+
+// execute with: docker-compose exec xmr sh -c "cd /opt/xmr/tests; php cmsSend.php 1234"
 require '../vendor/autoload.php';
 $_MESSAGE_COUNT = 15;
 $_ENCRYPT = false;
