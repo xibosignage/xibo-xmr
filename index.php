@@ -1,9 +1,9 @@
 #!/usr/bin/env php
 <?php
-/**
- * Copyright (C) 2020 Xibo Signage Ltd
+/*
+ * Copyright (C) 2024 Xibo Signage Ltd
  *
- * Xibo - Digital Signage - http://www.xibo.org.uk
+ * Xibo - Digital Signage - https://xibosignage.com
  *
  * This file is part of Xibo.
  *
@@ -19,74 +19,80 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
- *
-sequenceDiagram
-Player->> CMS: Register
-Note right of Player: Register contains the XMR Channel
-CMS->> XMR: PlayerAction
-XMR->> CMS: ACK
-XMR-->> Player: PlayerAction
- *
  */
+
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
+use Ratchet\Http\HttpServer;
+use Ratchet\Server\IoServer;
+use Ratchet\WebSocket\WsServer;
+use React\EventLoop\Loop;
+use React\Http\Message\Response;
+use Xibo\Controller\Api;
+use Xibo\Controller\Server;
+use Xibo\Entity\Queue;
+
 require 'vendor/autoload.php';
 
-function exception_error_handler($severity, $message, $file, $line) {
+// TODO: ratchet does not support PHP8
+error_reporting(E_ALL ^ E_DEPRECATED);
+
+set_error_handler(function($severity, $message, $file, $line) {
     if (!(error_reporting() & $severity)) {
         // This error code is not included in error_reporting
         return;
     }
     throw new ErrorException($message, 0, $severity, $file, $line);
-}
-set_error_handler("exception_error_handler");
+});
 
 // Decide where to look for the config file
 $dirname = (Phar::running(false) == '') ? __DIR__ : dirname(Phar::running(false));
 $config = $dirname . '/config.json';
 
-if (!file_exists($config))
+if (!file_exists($config)) {
     throw new InvalidArgumentException('Missing ' . $config . ' file, please create one in ' . $dirname);
+}
 
 $configString = file_get_contents($config);
 $config = json_decode($configString);
 
-if ($config === null)
+if ($config === null) {
     throw new InvalidArgumentException('Cannot decode config file ' . json_last_error_msg() . ' config string is [' . $configString . ']');
+}
 
-if ($config->debug)
-    $logLevel = \Monolog\Logger::DEBUG;
-else
-    $logLevel = \Monolog\Logger::WARNING;
+$logLevel = $config->debug ? Logger::DEBUG : Logger::WARNING;
+
+// Set up logging to file
+$log = new Logger('xmr');
+$log->pushHandler(new StreamHandler(STDOUT, $logLevel));
 
 // Queue settings
 $queuePoll = (property_exists($config, 'queuePoll')) ? $config->queuePoll : 5;
 $queueSize = (property_exists($config, 'queueSize')) ? $config->queueSize : 10;
 
-// Set up logging to file
-$log = new \Monolog\Logger('xmr');
-$log->pushHandler(new \Monolog\Handler\StreamHandler(STDOUT, $logLevel));
-$log->info(sprintf('Starting up - listening for CMS on %s.', $config->listenOn));
+// Create an in memory message queue.
+$messageQueue = new Queue();
 
 try {
-    $loop = \React\EventLoop\Factory::create();
+    $loop = Loop::get();
 
-    /**
-     * ZMQ context wraps the PHP implementation.
-     * @var \ZMQContext $context
-     */
-    $context = new React\ZMQ\Context($loop);
+    // Web Socket server
+    $messagingServer = new Server($messageQueue, $log);
+    $wsSocket = new React\Socket\SocketServer($config->sockets->ws);
+    $wsServer = new WsServer($messagingServer);
+    $ioServer = new IoServer(
+        new HttpServer($wsServer),
+        $wsSocket,
+        $loop
+    );
 
-    // Reply socket for requests from CMS
-    $responder = $context->getSocket(ZMQ::SOCKET_REP);
-    $responder->bind($config->listenOn);
+    // Enable keep alive
+    $wsServer->enableKeepAlive($ioServer->loop);
 
-    // Set RESP socket options
-    if (isset($config->ipv6RespSupport) && $config->ipv6RespSupport === true) {
-        $log->debug('RESP MQ Setting socket option for IPv6 to TRUE');
-        $responder->setSockOpt(\ZMQ::SOCKOPT_IPV6, true);
-    }
+    $log->info('WS listening on ' . $config->sockets->ws);
 
-    // Pub socket for messages to Players (subs)
-    $publisher = $context->getSocket(ZMQ::SOCKET_PUB);
+    // LEGACY: Pub socket for messages to Players (subs)
+    $publisher = (new React\ZMQ\Context($loop))->getSocket(ZMQ::SOCKET_PUB);
 
     // Set PUB socket options
     if (isset($config->ipv6PubSupport) && $config->ipv6PubSupport === true) {
@@ -94,149 +100,104 @@ try {
         $publisher->setSockOpt(\ZMQ::SOCKOPT_IPV6, true);
     }
 
-    foreach ($config->pubOn as $pubOn) {
+    foreach ($config->sockets->zmq as $pubOn) {
         $log->info(sprintf('Bind to %s for Publish.', $pubOn));
         $publisher->bind($pubOn);
     }
 
-    // Create an in memory message queue.
-    $messageStatsEmpty = [
-        'peakQueueSize' => 0,
-        'messageCounters' => [
-            'total' => 0,
-            'sent' => 0,
-            'qos1' => 0,
-            'qos2' => 0,
-            'qos3' => 0,
-            'qos4' => 0,
-            'qos5' => 0,
-            'qos6' => 0,
-            'qos7' => 0,
-            'qos8' => 0,
-            'qos9' => 0,
-            'qos10' => 0,
-        ]
-    ];
-    $messageStats = $messageStatsEmpty;
-    $messageQueue = [];
+    // Create a private API to receive messages from the CMS
+    $api = new Api($messageQueue, $log);
 
-    // REP
-    $responder->on('error', function ($e) use ($log) {
-        $log->error($e->getMessage());
-    });
-
-    $responder->on('message', function ($msg) use ($log, $responder, $publisher, &$messageQueue, &$messageStats, $messageStatsEmpty) {
-
+    // Create a HTTP server to handle requests to the API
+    $http = new React\Http\HttpServer(function (Psr\Http\Message\ServerRequestInterface $request) use ($log, $api) {
         try {
-            // Log incoming message
-            $log->info($msg);
-
-            if ($msg === 'stats') {
-                // Add the current queue size
-                $messageStats['currentQueueSize'] = count($messageQueue);
-
-                // Send response
-                $responder->send(json_encode($messageStats), \ZMQ::MODE_DONTWAIT);
-
-                // Reset the stats
-                $messageStats = $messageStatsEmpty;
-            } else {
-                // Parse the message and expect a "channel" element
-                $msg = json_decode($msg);
-
-                if (!isset($msg->channel)) {
-                    throw new InvalidArgumentException('Missing Channel');
-                }
-
-                if (!isset($msg->key)) {
-                    throw new InvalidArgumentException('Missing Key');
-                }
-
-                if (!isset($msg->message)) {
-                    throw new InvalidArgumentException('Missing Message');
-                }
-
-                // Respond to this message
-                $responder->send(true, \ZMQ::MODE_DONTWAIT);
-
-                // Make sure QOS is set
-                if (!isset($msg->qos)) {
-                    // Default to the highest priority for messages missing a QOS
-                    $msg->qos = 10;
-                }
-
-                // Add to stats
-                $messageStats['messageCounters']['total']++;
-                $messageStats['messageCounters']['qos' . $msg->qos]++;
-
-                // Decide whether we should queue the message or send it immediately.
-                if ($msg->qos != 10) {
-                    // Queue for the periodic poll to send
-                    $log->debug('Queuing');
-                    $messageQueue[] = $msg;
-
-                    // Record peak queue
-                    $currentQueueSize = count($messageQueue);
-                    if ($currentQueueSize > $messageStats['peakQueueSize']) {
-                        $messageStats['peakQueueSize'] = $currentQueueSize;
-                    }
-                } else {
-                    // Send Immediately
-                    $log->debug('Sending Immediately');
-                    $messageStats['messageCounters']['sent']++;
-                    $publisher->sendmulti([$msg->channel, $msg->key, $msg->message], \ZMQ::MODE_DONTWAIT);
-                }
+            if ($request->getMethod() !== 'POST') {
+                throw new Exception('Method not allowed');
             }
-        } catch (InvalidArgumentException $e) {
-            // Return false
-            $responder->send(false, \ZMQ::MODE_DONTWAIT);
 
-            $log->error($e->getMessage());
+            $json = json_decode($request->getBody()->getContents(), true);
+            if ($json === false || !is_array($json)) {
+                throw new InvalidArgumentException('Not valid JSON');
+            }
+
+            return $api->handleMessage($json);
+        } catch (Exception $e) {
+            $log->error('API: e = ' . $e->getMessage());
+            return new Response(
+                422,
+                ['Content-Type' => 'plain/text'],
+                $e->getMessage()
+            );
         }
     });
+    $socket = new React\Socket\SocketServer($config->sockets->api);
+    $http->listen($socket);
+    $http->on('error', function (Exception $exception) use ($log) {
+        $log->error('http: ' . $exception->getMessage());
+        $log->debug('stack: ' . $exception->getTraceAsString());
+    });
+
+    $log->info('HTTP listening');
 
     // Queue Processor
     $log->debug('Adding a queue processor for every ' . $queuePoll . ' seconds');
-    $loop->addPeriodicTimer($queuePoll, function() use ($log, $publisher, &$messageQueue, $queueSize, &$messageStats) {
+    $loop->addPeriodicTimer($queuePoll, function() use ($log, $messagingServer, $publisher, $messageQueue, $queueSize) {
         // Is there work to be done
-        if (count($messageQueue) > 0) {
+        if ($messageQueue->hasItems()) {
             $log->debug('Queue Poll - work to be done.');
 
-            // Order the message queue according to QOS
-            usort($messageQueue, function($a, $b) {
-                return ($a->qos === $b->qos) ? 0 : (($a->qos < $b->qos) ? -1 : 1);
-            });
+            $messageQueue->sortQueue();
 
             $log->debug('Queue Poll - message queue sorted');
 
             // Send up to X messages.
             for ($i = 0; $i < $queueSize; $i++) {
-                if ($i > count($messageQueue)) {
+                if ($i > $messageQueue->queueSize()) {
                     $log->debug('Queue Poll - queue size reached');
                     break;
                 }
 
                 // Pop an element
-                $msg = array_pop($messageQueue);
+                $msg = $messageQueue->getItem();
 
                 // Send
                 $log->debug('Sending ' . $i);
 
-                $messageStats['messageCounters']['sent']++;
-                $publisher->sendmulti([$msg->channel, $msg->key, $msg->message], \ZMQ::MODE_DONTWAIT);
+                // Where are we sending this item?
+                if ($msg->isWebSocket) {
+                    $display = $messagingServer->getDisplayById($msg->channel);
+                    if ($display === null) {
+                        $log->info('Display ' . $msg->channel . ' not connected');
+                        continue;
+                    }
+                    $display->connection->send($msg->message);
+                } else {
+                    $publisher->sendmulti([$msg->channel, $msg->key, $msg->message], \ZMQ::MODE_DONTWAIT);
+                }
 
-                $log->debug('Popped ' . $i . ' from the queue, new queue size ' . count($messageQueue));
+                $log->debug('Popped ' . $i . ' from the queue, new queue size ' . $messageQueue->queueSize());
             }
         }
     });
 
     // Periodic updater
-    $loop->addPeriodicTimer(30, function() use ($log, $publisher) {
+    $loop->addPeriodicTimer(30, function() use ($log, $messagingServer, $publisher) {
         $log->debug('Heartbeat...');
+
+        // Send to all connected WS clients
+        $messagingServer->heartbeat();
+
+        // Send to PUB queue
         $publisher->sendmulti(["H", "", ""], \ZMQ::MODE_DONTWAIT);
     });
 
-    // Run the react event loop
+    // Key management
+    $loop->addPeriodicTimer(3600, function() use ($log, $messageQueue) {
+        $log->debug('Key management...');
+        $messageQueue->expireKeys();
+    });
+
+    // Run the React event loop
     $loop->run();
 } catch (Exception $e) {
     $log->error($e->getMessage());
