@@ -181,19 +181,17 @@ class Queue
     public function expireKeys(): void
     {
         // Expire keys within each instance
-        foreach ($this->instances as $instance) {
-            for ($i = 0; $i < count($instance['keys']); $i++) {
+        foreach ($this->instances as $instanceKey => $instance) {
+            foreach ($instance['keys'] as $key => $value) {
                 // Expire any keys which are no longer in date.
-                if (time() >= $instance['keys'][$i]['expires']) {
-                    unset($instance['keys'][$i]);
+                if (time() >= $value['expires']) {
+                    unset($instance['keys'][$key]);
                 }
             }
-        }
 
-        // Remove instances with no keys
-        for ($j = 0; $j < count($this->instances); $j++) {
-            if (count($this->instances[$j]['keys']) <= 0) {
-                unset($this->instances[$j]);
+            // Remove instances with no keys
+            if (count($instance['keys']) <= 0) {
+                unset($this->instances[$instanceKey]);
             }
         }
     }
