@@ -36,6 +36,7 @@ require 'vendor/autoload.php';
 
 // TODO: ratchet does not support PHP8
 error_reporting(E_ALL ^ E_DEPRECATED);
+ini_set('display_errors', 0);
 
 set_error_handler(function($severity, $message, $file, $line) {
     if (!(error_reporting() & $severity)) {
@@ -134,7 +135,6 @@ try {
     $http->listen($socket);
     $http->on('error', function (Exception $exception) use ($log) {
         $log->error('http: ' . $exception->getMessage());
-        $log->debug('stack: ' . $exception->getTraceAsString());
     });
 
     $log->info('HTTP listening');

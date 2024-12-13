@@ -168,15 +168,15 @@ class Queue
         }
 
         // If a key already exists push the expiry time
-        foreach ($this->instances[$instance]['keys'] as $existingKey) {
+        foreach ($this->instances[$instance]['keys'] as $index => $existingKey) {
             if ($existingKey['key'] === $key) {
-                $existingKey['expires'] = time() + 3600;
+                $this->instances[$instance]['keys'][$index]['expires'] = time() + 3600;
                 return;
             }
         }
 
         // Not found
-        $this->instances[$instance]['keys'] = [
+        $this->instances[$instance]['keys'][] = [
             'key' => $key,
             'expires' => time() + 86400,
         ];
