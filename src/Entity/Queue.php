@@ -154,17 +154,39 @@ class Queue
         ];
     }
 
+    /**
+     * Add key.
+     *  called by a CMS to indicate that it has generated a new key, or is refreshing an old key.
+     * @param string $instance
+     * @param string $key
+     * @return void
+     */
     public function addKey(string $instance, string $key): void
     {
         if (!array_key_exists($instance, $this->instances)) {
             $this->instances[$instance] = ['keys' => []];
         }
-        $this->instances[$instance]['keys'][] = [
+
+        // If a key already exists push the expiry time
+        foreach ($this->instances[$instance]['keys'] as $existingKey) {
+            if ($existingKey['key'] === $key) {
+                $existingKey['expires'] = time() + 3600;
+                return;
+            }
+        }
+
+        // Not found
+        $this->instances[$instance]['keys'] = [
             'key' => $key,
             'expires' => time() + 86400,
         ];
     }
 
+    /**
+     * Authenticate the provided key against our list of valid keys
+     * @param string $providedKey
+     * @return bool
+     */
     public function authKey(string $providedKey): bool
     {
         foreach ($this->instances as $instance) {
@@ -178,6 +200,10 @@ class Queue
         return false;
     }
 
+    /**
+     * Key maintenance to remove keys which have expired
+     * @return void
+     */
     public function expireKeys(): void
     {
         // Expire keys within each instance
