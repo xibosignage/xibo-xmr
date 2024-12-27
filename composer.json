@@ -31,7 +31,8 @@
     "react/react": "^1.4",
     "react/socket": "^1.16",
     "react/zmq": "^0.4.0",
-    "cboden/ratchet": "^0.4.4"
+    "cboden/ratchet": "^0.4.4",
+    "guzzlehttp/guzzle": "^7.9"
   },
   "autoload": {
     "psr-4": {

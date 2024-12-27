@@ -29,7 +29,8 @@ class Api
 {
     public function __construct(
         private readonly Queue $queue,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly Relay $relay,
     ) {
     }
 
@@ -50,6 +51,11 @@ class Api
         } else if ($type === 'keys') {
             // Register new keys for this CMS.
             $this->queue->addKey($message['id'], $message['key']);
+
+            // Relay new keys.
+            if ($this->relay->isRelay()) {
+                $this->relay->relayArray($message);
+            }
         } else if ($type === 'multi') {
             $this->logger->debug('Queuing multiple messages');
             foreach ($message['messages'] as $message) {

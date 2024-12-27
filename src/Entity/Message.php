@@ -21,11 +21,22 @@
  */
 namespace Xibo\Entity;
 
-class Message
+class Message implements \JsonSerializable
 {
     public string $channel;
     public string $key;
     public string $message;
     public int $qos;
     public bool $isWebSocket;
+
+    public function jsonSerialize(): array
+    {
+        return [
+            'channel' => $this->channel,
+            'key' => $this->key,
+            'message' => $this->message,
+            'qos' => $this->qos,
+            'isWebSocket' => $this->isWebSocket,
+        ];
+    }
 }

@@ -29,6 +29,7 @@ use Ratchet\WebSocket\WsServer;
 use React\EventLoop\Loop;
 use React\Http\Message\Response;
 use Xibo\Controller\Api;
+use Xibo\Controller\Relay;
 use Xibo\Controller\Server;
 use Xibo\Entity\Queue;
 
@@ -68,8 +69,15 @@ $log = new Logger('xmr');
 $log->pushHandler(new StreamHandler(STDOUT, $logLevel));
 
 // Queue settings
-$queuePoll = (property_exists($config, 'queuePoll')) ? $config->queuePoll : 5;
-$queueSize = (property_exists($config, 'queueSize')) ? $config->queueSize : 10;
+$queuePoll = $config->queuePoll ?? 5;
+$queueSize = $config->queueSize ?? 10;
+
+// Create a client to relay messages
+$relay = new Relay(
+    $log,
+    $config->relayMessages ?? '',
+    $config->relayOldMessages ?? '',
+);
 
 // Create an in memory message queue.
 $messageQueue = new Queue();
@@ -77,37 +85,10 @@ $messageQueue = new Queue();
 try {
     $loop = Loop::get();
 
-    // Web Socket server
-    $messagingServer = new Server($messageQueue, $log);
-    $wsSocket = new React\Socket\SocketServer($config->sockets->ws);
-    $wsServer = new WsServer($messagingServer);
-    $ioServer = new IoServer(
-        new HttpServer($wsServer),
-        $wsSocket,
-        $loop
-    );
-
-    // Enable keep alive
-    $wsServer->enableKeepAlive($ioServer->loop);
-
-    $log->info('WS listening on ' . $config->sockets->ws);
-
-    // LEGACY: Pub socket for messages to Players (subs)
-    $publisher = (new React\ZMQ\Context($loop))->getSocket(ZMQ::SOCKET_PUB);
-
-    // Set PUB socket options
-    if (isset($config->ipv6PubSupport) && $config->ipv6PubSupport === true) {
-        $log->debug('Pub MQ Setting socket option for IPv6 to TRUE');
-        $publisher->setSockOpt(\ZMQ::SOCKOPT_IPV6, true);
-    }
-
-    foreach ($config->sockets->zmq as $pubOn) {
-        $log->info(sprintf('Bind to %s for Publish.', $pubOn));
-        $publisher->bind($pubOn);
-    }
-
+    // Private API
+    // -----------
     // Create a private API to receive messages from the CMS
-    $api = new Api($messageQueue, $log);
+    $api = new Api($messageQueue, $log, $relay);
 
     // Create a HTTP server to handle requests to the API
     $http = new React\Http\HttpServer(function (Psr\Http\Message\ServerRequestInterface $request) use ($log, $api) {
@@ -139,9 +120,52 @@ try {
 
     $log->info('HTTP listening');
 
+    // WS
+    // ----
+    // Web Socket server
+    $messagingServer = new Server($messageQueue, $log);
+    $wsSocket = new React\Socket\SocketServer($config->sockets->ws);
+    $wsServer = new WsServer($messagingServer);
+    $ioServer = new IoServer(
+        new HttpServer($wsServer),
+        $wsSocket,
+        $loop
+    );
+
+    // Enable keep alive
+    $wsServer->enableKeepAlive($ioServer->loop);
+
+    $log->info('WS listening on ' . $config->sockets->ws);
+
+    // PUB/SUB
+    // -------
+    // LEGACY: Pub socket for messages to Players (subs)
+    if ($relay->isRelayOld()) {
+        $log->info('Legacy: relaying old messages');
+
+        $publisher = null;
+        $relay->configureZmq();
+    } else {
+        $log->info('Legacy: handling old messages');
+
+        $publisher = (new React\ZMQ\Context($loop))->getSocket(ZMQ::SOCKET_PUB);
+
+        // Set PUB socket options
+        if (isset($config->ipv6PubSupport) && $config->ipv6PubSupport === true) {
+            $log->debug('Pub MQ Setting socket option for IPv6 to TRUE');
+            $publisher->setSockOpt(\ZMQ::SOCKOPT_IPV6, true);
+        }
+
+        foreach ($config->sockets->zmq as $pubOn) {
+            $log->info(sprintf('Bind to %s for Publish.', $pubOn));
+            $publisher->bind($pubOn);
+        }
+    }
+
     // Queue Processor
+    // ---------------
     $log->debug('Adding a queue processor for every ' . $queuePoll . ' seconds');
-    $loop->addPeriodicTimer($queuePoll, function() use ($log, $messagingServer, $publisher, $messageQueue, $queueSize) {
+    $loop->addPeriodicTimer($queuePoll, function() use ($log, $messagingServer, $relay, $publisher, $messageQueue, $queueSize) {
         // Is there work to be done
         if ($messageQueue->hasItems()) {
             $log->debug('Queue Poll - work to be done.');
@@ -167,12 +191,20 @@ try {
                 if ($msg->isWebSocket) {
                     $display = $messagingServer->getDisplayById($msg->channel);
                     if ($display === null) {
-                        $log->info('Display ' . $msg->channel . ' not connected');
-                        continue;
+                        if ($relay->isRelay()) {
+                            $relay->relay($msg);
+                        } else {
+                            $log->info('Display ' . $msg->channel . ' not connected');
+                        }
+                    } else {
+                        $display->connection->send($msg->message);
                     }
-                    $display->connection->send($msg->message);
-                } else {
+                } else if ($relay->isRelayOld()) {
+                    $relay->relay($msg);
+                } else if ($publisher !== null) {
                     $publisher->sendmulti([$msg->channel, $msg->key, $msg->message], \ZMQ::MODE_DONTWAIT);
+                } else {
+                    $log->error('No route to send');
                 }
 
                 $log->debug('Popped ' . $i . ' from the queue, new queue size ' . $messageQueue->queueSize());
@@ -188,7 +220,7 @@ try {
         $messagingServer->heartbeat();
 
         // Send to PUB queue
-        $publisher->sendmulti(["H", "", ""], \ZMQ::MODE_DONTWAIT);
+        $publisher?->sendmulti(["H", "", ""], \ZMQ::MODE_DONTWAIT);
     });
 
     // Key management
