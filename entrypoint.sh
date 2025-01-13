@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# Copyright (C) 2024 Xibo Signage Ltd
+# Copyright (C) 2025 Xibo Signage Ltd
 #
 # Xibo - Digital Signage - https://xibosignage.com
 #
@@ -24,9 +24,9 @@
 # Write config.json
 echo '{' > /opt/xmr/config.json
 echo '  "sockets": {' >> /opt/xmr/config.json
-echo '    "ws": "0.0.0.0:8080",' >> /opt/xmr/config.json
-echo '    "api": "0.0.0.0:8081",' >> /opt/xmr/config.json
-echo '    "zmq": ["tcp://*:9505"]' >> /opt/xmr/config.json
+echo '    "ws": "'$XMR_SOCKETS_WS'",' >> /opt/xmr/config.json
+echo '    "api": "'$XMR_SOCKETS_API'",' >> /opt/xmr/config.json
+echo '    "zmq": ["tcp://*:'$XMR_SOCKETS_ZM_PORT'"]' >> /opt/xmr/config.json
 echo '  },' >> /opt/xmr/config.json
 echo '  "queuePoll": '$XMR_QUEUE_POLL',' >> /opt/xmr/config.json
 echo '  "queueSize": '$XMR_QUEUE_SIZE',' >> /opt/xmr/config.json

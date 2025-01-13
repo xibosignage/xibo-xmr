@@ -11,6 +11,9 @@ ENV XMR_QUEUE_SIZE=10
 ENV XMR_IPV6PUBSUPPORT=false
 ENV XMR_RELAY_OLD_MESSAGES=false
 ENV XMR_RELAY_MESSAGES=false
+ENV XMR_SOCKETS_WS=0.0.0.0:8080
+ENV XMR_SOCKETS_API=0.0.0.0:8081
+ENV XMR_SOCKETS_ZM_PORT=9505
 
 RUN apt-get update && apt-get install -y libzmq3-dev git \
     && rm -rf /var/lib/apt/lists/*
