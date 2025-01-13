@@ -32,7 +32,7 @@ echo '  "queuePoll": '$XMR_QUEUE_POLL',' >> /opt/xmr/config.json
 echo '  "queueSize": '$XMR_QUEUE_SIZE',' >> /opt/xmr/config.json
 echo '  "debug": '$XMR_DEBUG',' >> /opt/xmr/config.json
 echo '  "ipv6PubSupport": '$XMR_IPV6PUBSUPPORT',' >> /opt/xmr/config.json
-echo '  "relayOldMessages": '$XMR_RELAY_OLD_MESSAGES',' >> /opt/xmr/config.json
+echo '  "relayOldMessages": "'$XMR_RELAY_OLD_MESSAGES'",' >> /opt/xmr/config.json
 echo '  "relayMessages": '$XMR_RELAY_MESSAGES >> /opt/xmr/config.json
 echo '}' >> /opt/xmr/config.json
 
