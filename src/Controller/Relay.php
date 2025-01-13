@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (C) 2024 Xibo Signage Ltd
+ * Copyright (C) 2025 Xibo Signage Ltd
  *
  * Xibo - Digital Signage - https://xibosignage.com
  *
@@ -39,7 +39,7 @@ class Relay
         private string $relayOldMessages,
     ) {
         // Create a client for us to use
-        if (!empty($this->relayMessages)) {
+        if (!empty($this->relayMessages) && $this->relayMessages !== 'false') {
             $this->client = new Client([
                 'base_uri' => $this->relayMessages,
             ]);
@@ -66,12 +66,12 @@ class Relay
 
     public function isRelay(): bool
     {
-        return !empty($this->relayMessages);
+        return !empty($this->relayMessages) && $this->relayMessages !== 'false';
     }
 
     public function isRelayOld(): bool
     {
-        return !empty($this->relayOldMessages);
+        return !empty($this->relayOldMessages) && $this->relayOldMessages !== 'false';
     }
 
     /**
