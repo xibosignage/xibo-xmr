@@ -1,8 +1,8 @@
 <?php
-/**
- * Copyright (C) 2022 Xibo Signage Ltd
+/*
+ * Copyright (C) 2024 Xibo Signage Ltd
  *
- * Xibo - Digital Signage - http://www.xibo.org.uk
+ * Xibo - Digital Signage - https://xibosignage.com
  *
  * This file is part of Xibo.
  *
@@ -18,11 +18,9 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with Xibo.  If not, see <http://www.gnu.org/licenses/>.
- *
- * This is a player subscription mock file.
- * docker-compose exec xmr sh -c "cd /opt/xmr/tests; php playerSub.php 1234"
- *
  */
+// docker-compose exec xmr sh -c "cd /opt/xmr/tests; php playerSub.php 1234"
+// docker-compose exec xmr sh -c "cd /opt/xmr/tests; php playerSub.php 1234 websocket"
 require '../vendor/autoload.php';
 
 if (!isset($argv[1])) {
@@ -35,7 +33,7 @@ $fp = fopen('key.pem', 'r');
 $privateKey = openssl_get_privatekey(fread($fp, 8192));
 fclose($fp);
 
-echo 'Sub to: ' . $identity;
+echo 'Sub to: ' . $identity . PHP_EOL;
 
 // Sub
 $loop = React\EventLoop\Factory::create();
