@@ -12,5 +12,6 @@
   ],
   "main": "index.php",
   "output": "bin/xmr.phar",
-  "stub": true
+  "stub": true,
+  "force-autodiscovery": true
 }
