@@ -64,6 +64,28 @@ class Relay
         }
     }
 
+    public function disconnect(): void
+    {
+        // If we are connected, then
+        if ($this->socket !== null) {
+            try {
+                $this->socket->disconnect($this->relayOldMessages);
+            } catch (\Exception $exception) {
+                $this->socket = null;
+                $this->relayOldMessages = null;
+
+                $this->logger->critical('Unable to disconnect from old message relay: '
+                    . $this->relayOldMessages . ', e = ' . $exception->getMessage());
+            }
+        }
+    }
+
+    private function reconnect(): void
+    {
+        $this->disconnect();
+        $this->configureZmq();
+    }
+
     public function isRelay(): bool
     {
         return !empty($this->relayMessages) && $this->relayMessages !== 'false';
@@ -87,7 +109,12 @@ class Relay
             try {
                 $this->socket->send(json_encode($message));
             } catch (\ZMQSocketException $socketException) {
-                $this->logger->error('relay: [' . $socketException->getCode() . '] ' . $socketException->getMessage());
+                $this->logger->error('relay: send [' . $socketException->getCode() . '] ' . $socketException->getMessage());
+                if ($socketException->getCode() === 156384763) {
+                    // Socket state error, reconnect.
+                    // We will drop this message
+                    $this->reconnect();
+                }
                 return;
             }
 
@@ -101,7 +128,12 @@ class Relay
                         break;
                     }
                 } catch (\ZMQSocketException $socketException) {
-                    $this->logger->error('relay: [' . $socketException->getCode() . '] ' . $socketException->getMessage());
+                    $this->logger->error('relay: recv [' . $socketException->getCode() . '] ' . $socketException->getMessage());
+                    if ($socketException->getCode() === 156384763) {
+                        // Socket state error, reconnect.
+                        // We will drop this message
+                        $this->reconnect();
+                    }
                     break;
                 }
 
