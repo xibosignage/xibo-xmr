@@ -19,8 +19,10 @@ ENV XMR_SOCKETS_WS=0.0.0.0:8080
 ENV XMR_SOCKETS_API=0.0.0.0:8081
 ENV XMR_SOCKETS_ZM_PORT=9505
 
-RUN apt-get update && apt-get install -y libzmq3-dev git \
+RUN apt-get update && apt-get install -y libzmq3-dev libev-dev git \
     && rm -rf /var/lib/apt/lists/*
+
+RUN pecl install ev && docker-php-ext-enable ev
 
 RUN git clone https://github.com/zeromq/php-zmq.git \
     && cd php-zmq \
