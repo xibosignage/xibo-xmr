@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (C) 2025 Xibo Signage Ltd
+ * Copyright (C) 2026 Xibo Signage Ltd
  *
  * Xibo - Digital Signage - https://xibosignage.com
  *
@@ -55,7 +55,7 @@ class Relay
             $this->socket = (new \ZMQContext())->getSocket(\ZMQ::SOCKET_REQ);
             $this->socket->setSockOpt(\ZMQ::SOCKOPT_LINGER, 2000);
             $this->socket->connect($this->relayOldMessages);
-        } catch (\Exception $exception) {
+        } catch (\Throwable $exception) {
             $this->socket = null;
             $this->relayOldMessages = null;
 
@@ -70,7 +70,7 @@ class Relay
         if ($this->socket !== null) {
             try {
                 $this->socket->disconnect($this->relayOldMessages);
-            } catch (\Exception $exception) {
+            } catch (\Throwable $exception) {
                 $this->socket = null;
                 $this->relayOldMessages = null;
 

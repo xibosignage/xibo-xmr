@@ -34,8 +34,8 @@ cat <<EOF > /opt/xmr/config.json
   "queueSize": ${XMR_QUEUE_SIZE:-10},
   "debug": ${XMR_DEBUG:-false},
   "ipv6PubSupport": ${XMR_IPV6PUBSUPPORT:-false},
-  "relayOldMessages": ${XMR_RELAY_OLD_MESSAGES:-false},
-  "relayMessages": ${XMR_RELAY_MESSAGES:-false}
+  "relayOldMessages": "${XMR_RELAY_OLD_MESSAGES:-false}",
+  "relayMessages": "${XMR_RELAY_MESSAGES:-false}"
 }
 EOF
 
