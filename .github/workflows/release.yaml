@@ -45,7 +45,7 @@ jobs:
         run: |
           CONTAINER=$(docker create ghcr.io/xibosignage/xibo-xmr:${GITHUB_REF##*/})
           echo 'Copying PHAR from container.'
-          docker cp "$CONTAINER":/opt/xmr/bin/xmr.phar xibo-xmr-${GITHUB_REF##*/}
+          docker cp "$CONTAINER":/opt/xmr/bin/xmr.phar bin/xmr.phar
           docker rm "$CONTAINER"
 
       - name: Release
