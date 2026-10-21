@@ -36,6 +36,12 @@ You may also build this library from source code:
 3. Run `docker-compose up --build`
 
 
+## Tests
+Run `tests/run.sh` to build the image, start XMR and run the test suite against it. The tests run inside the XMR
+image, so they use the same PHP and extensions that ship. Arguments are passed to PHPUnit, for example
+`tests/run.sh --testsuite Unit`.
+
+
 
 You may also reference this code in your own projects via Composer:
 

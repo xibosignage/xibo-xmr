@@ -23,10 +23,11 @@ jobs:
         run: |
           docker login ghcr.io --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
 
+      # Always pull fresh base images and rebuild every layer for latest, so PHP and its extensions are current
       - name: Build Latest
         if: github.ref == 'refs/heads/master'
         run: |
-          docker build . -t ghcr.io/xibosignage/xibo-xmr:latest
+          docker build . --pull --no-cache -t ghcr.io/xibosignage/xibo-xmr:latest
           docker push ghcr.io/xibosignage/xibo-xmr:latest
 
       - name: Build Develop

@@ -26,12 +26,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Always pull fresh base images and rebuild every layer for releases, so PHP and its extensions are current
       - name: Build Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          pull: true
+          no-cache: true
           tags: ghcr.io/xibosignage/xibo-xmr:${{ github.ref_name }}
           build-args: GIT_COMMIT=${{ github.sha }}
           push: true
