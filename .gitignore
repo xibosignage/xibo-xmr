@@ -2,3 +2,4 @@ vendor/
 .idea/
 bin/xmr.phar
 config.json
+.phpunit.cache

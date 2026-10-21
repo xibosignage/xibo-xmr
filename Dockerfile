@@ -6,7 +6,7 @@ RUN composer install --no-interaction --no-dev --ignore-platform-reqs --optimize
 RUN echo 'phar.readonly = Off' > /usr/local/etc/php/php.ini;
 RUN curl -LSs https://github.com/box-project/box/releases/download/4.6.10/box.phar -o box.phar; php box.phar compile; rm box.phar
 
-FROM php:8.2-cli
+FROM php:8.5-cli
 LABEL org.opencontainers.image.authors="Xibo Signage Ltd <info@xibosignage.com>"
 
 ENV XMR_DEBUG=false \
@@ -30,8 +30,10 @@ RUN apt-get update && apt-get install -y \
 
 RUN pecl install ev && docker-php-ext-enable ev
 
+# php-zmq is unmaintained: zend_exception_get_default() was removed in PHP 8.5, use zend_ce_exception instead
 RUN git clone https://github.com/zeromq/php-zmq.git \
     && cd php-zmq \
+    && sed -i 's/zend_exception_get_default()/zend_ce_exception/' zmq.c \
     && phpize && ./configure \
     && make \
     && make install \
@@ -40,10 +42,9 @@ RUN git clone https://github.com/zeromq/php-zmq.git \
 
 RUN docker-php-ext-enable zmq
 
-# Install opcache and ensure its running for CLI
-RUN docker-php-ext-install opcache
-RUN echo "opcache.enable_cli=1" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
-RUN echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
+# Opcache is built in from PHP 8.5, ensure its running for CLI
+RUN echo "opcache.enable_cli=1" >> /usr/local/etc/php/conf.d/opcache.ini
+RUN echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini
 
 EXPOSE 8080 8081 9505
 
