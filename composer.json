@@ -21,12 +21,12 @@
   "bin": ["bin/xmr.phar"],
   "config": {
     "platform": {
-      "php": "8.2",
+      "php": "8.4",
       "ext-zmq": "1"
     }
   },
   "require": {
-    "php": ">=8.2",
+    "php": ">=8.4",
     "monolog/monolog": "^1.17",
     "react/react": "^1.4",
     "react/socket": "^1.16",

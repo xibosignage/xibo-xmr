@@ -30,10 +30,15 @@ RUN apt-get update && apt-get install -y \
 
 RUN pecl install ev && docker-php-ext-enable ev
 
-# php-zmq is unmaintained: zend_exception_get_default() was removed in PHP 8.5, use zend_ce_exception instead
+# php-zmq is unmaintained, so pin to a known commit and patch for PHP 8.5:
+# zend_exception_get_default() was removed, use zend_ce_exception instead (fail the build if the patch doesn't apply)
+ARG PHP_ZMQ_COMMIT=616b6c64ffd3866ed038615494306dd464ab53fc
 RUN git clone https://github.com/zeromq/php-zmq.git \
     && cd php-zmq \
+    && git checkout "$PHP_ZMQ_COMMIT" \
+    && grep -q 'zend_exception_get_default()' zmq.c \
     && sed -i 's/zend_exception_get_default()/zend_ce_exception/' zmq.c \
+    && ! grep -q 'zend_exception_get_default()' zmq.c \
     && phpize && ./configure \
     && make \
     && make install \
