@@ -51,6 +51,11 @@ RUN docker-php-ext-enable zmq
 RUN echo "opcache.enable_cli=1" >> /usr/local/etc/php/conf.d/opcache.ini
 RUN echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini
 
+# Security hardening (session upload progress, Freexian recommended settings)
+RUN echo "session.upload_progress.enabled=0" >> /usr/local/etc/php/conf.d/xibo-security.ini
+RUN echo "max_input_nesting_level=4" >> /usr/local/etc/php/conf.d/xibo-security.ini
+RUN echo "expose_php=0" >> /usr/local/etc/php/conf.d/xibo-security.ini
+
 EXPOSE 8080 8081 9505
 
 COPY ./entrypoint.sh /entrypoint.sh
